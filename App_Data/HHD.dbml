@@ -1,0 +1,165 @@
+﻿<?xml version="1.0" encoding="utf-8"?><Database Name="ERPCourierSE" Class="HHDDataContext" xmlns="http://schemas.microsoft.com/linqtosql/dbml/2007">
+  <Connection Mode="WebSettings" ConnectionString="Data Source=sofanpc;Initial Catalog=ERPCourierSE;Persist Security Info=True;User ID=sa" SettingsObjectName="System.Configuration.ConfigurationManager.ConnectionStrings" SettingsPropertyName="ERPCourierSEConnectionString" Provider="System.Data.SqlClient" />
+  <Table Name="dbo.PickUp" Member="PickUps">
+    <Type Name="PickUp">
+      <Column Name="WaybillNo" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="ClientID" Type="System.Int32" DbType="Int" CanBeNull="true" />
+      <Column Name="FromStationID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="ToStationID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="PieceCount" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Weight" Type="System.Double" DbType="Float" CanBeNull="true" />
+      <Column Name="TimeIn" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="TimeOut" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="UserID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="StationID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="RefNo" Type="System.String" DbType="NVarChar(100)" CanBeNull="true" />
+      <Column Name="CurrentVersion" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="IsServerTime" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
+      <Column Name="Latitude" Type="System.String" DbType="NVarChar(250)" CanBeNull="true" />
+      <Column Name="Longitude" Type="System.String" DbType="NVarChar(250)" CanBeNull="true" />
+      <Column Name="ReceivedAmt" Type="System.Double" DbType="Float" CanBeNull="true" />
+      <Column Name="ReceiptNo" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="IsManual" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
+      <Column Name="StopPointsID" Type="System.Int32" DbType="Int" CanBeNull="true" />
+      <Association Name="PickUp_PickUpDetail" Member="PickUpDetails" ThisKey="ID" OtherKey="PickUpID" Type="PickUpDetail" />
+    </Type>
+  </Table>
+  <Table Name="dbo.PickUpDetail" Member="PickUpDetails">
+    <Type Name="PickUpDetail">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="BarCode" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="PickUpID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Association Name="PickUp_PickUpDetail" Member="PickUp" ThisKey="PickUpID" OtherKey="ID" Type="PickUp" IsForeignKey="true" DeleteRule="CASCADE" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.UserMeLogin" Member="UserMeLogins">
+    <Type Name="UserMeLogin">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="EmployID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="StateID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Date" Type="System.DateTime" DbType="DateTime" CanBeNull="true" />
+      <Column Name="HHDName" Type="System.String" DbType="NVarChar(250)" CanBeNull="true" />
+      <Column Name="Version" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
+      <Column Name="TruckID" Type="System.Int32" DbType="Int" CanBeNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.OnDeliveryDetail" Member="OnDeliveryDetails">
+    <Type Name="OnDeliveryDetail">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="BarCode" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="DeliveryID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="OnDelivery_OnDeliveryDetail" Member="OnDelivery" ThisKey="DeliveryID" OtherKey="ID" Type="OnDelivery" IsForeignKey="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.NotDelivered" Member="NotDelivereds">
+    <Type Name="NotDelivered">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="WaybillNo" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="TimeIn" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="TimeOut" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="UserID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="StationID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="PiecesCount" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="DeliveryStatusID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Notes" Type="System.String" DbType="NVarChar(200)" CanBeNull="true" />
+      <Column Name="Latitude" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="Longitude" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Association Name="NotDelivered_NotDeliveredDetail" Member="NotDeliveredDetails" ThisKey="ID" OtherKey="NotDeliveredID" Type="NotDeliveredDetail" />
+    </Type>
+  </Table>
+  <Table Name="dbo.NotDeliveredDetail" Member="NotDeliveredDetails">
+    <Type Name="NotDeliveredDetail">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="BarCode" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="NotDeliveredID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="NotDelivered_NotDeliveredDetail" Member="NotDelivered" ThisKey="NotDeliveredID" OtherKey="ID" Type="NotDelivered" IsForeignKey="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.OnCloadingForD" Member="OnCloadingForDs">
+    <Type Name="OnCloadingForD">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="CourierID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="UserID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="CTime" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="PieceCount" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="TruckID" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="IDs" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="WaybillCount" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="StationID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="OnCloadingForD_OnCLoadingForDDetail" Member="OnCLoadingForDDetails" ThisKey="ID" OtherKey="OnCLoadingForDID" Type="OnCLoadingForDDetail" />
+      <Association Name="OnCloadingForD_OnCLoadingForDWaybill" Member="OnCLoadingForDWaybills" ThisKey="ID" OtherKey="OnCLoadingID" Type="OnCLoadingForDWaybill" />
+    </Type>
+  </Table>
+  <Table Name="dbo.OnCLoadingForDDetail" Member="OnCLoadingForDDetails">
+    <Type Name="OnCLoadingForDDetail">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="BarCode" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="OnCLoadingForDID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="OnCloadingForD_OnCLoadingForDDetail" Member="OnCloadingForD" ThisKey="OnCLoadingForDID" OtherKey="ID" Type="OnCloadingForD" IsForeignKey="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.OnCLoadingForDWaybill" Member="OnCLoadingForDWaybills">
+    <Type Name="OnCLoadingForDWaybill">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="WaybillNo" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="OnCLoadingID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="OnCloadingForD_OnCLoadingForDWaybill" Member="OnCloadingForD" ThisKey="OnCLoadingID" OtherKey="ID" Type="OnCloadingForD" IsForeignKey="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.OnDelivery" Member="OnDeliveries">
+    <Type Name="OnDelivery">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="WaybillNo" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="ReceiverName" Type="System.String" DbType="NVarChar(100) NOT NULL" CanBeNull="false" />
+      <Column Name="PiecesCount" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="TimeIn" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="TimeOut" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="UserID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="StationID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="IsPartial" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
+      <Column Name="Latitude" Type="System.String" DbType="NVarChar(250)" CanBeNull="true" />
+      <Column Name="Longitude" Type="System.String" DbType="NVarChar(250)" CanBeNull="true" />
+      <Column Name="ReceivedAmt" Type="System.Double" DbType="Float" CanBeNull="true" />
+      <Column Name="ReceiptNo" Type="System.String" DbType="NVarChar(50)" CanBeNull="true" />
+      <Column Name="StopPointsID" Type="System.Int32" DbType="Int" CanBeNull="true" />
+      <Column Name="CashAmount" Type="System.Double" DbType="Float" CanBeNull="true" />
+      <Column Name="POSAmount" Type="System.Double" DbType="Float" CanBeNull="true" />
+      <Association Name="OnDelivery_OnDeliveryDetail" Member="OnDeliveryDetails" ThisKey="ID" OtherKey="DeliveryID" Type="OnDeliveryDetail" />
+    </Type>
+  </Table>
+  <Table Name="dbo.[CheckPoint]" Member="CheckPoints">
+    <Type Name="CheckPoint">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="EmployID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Date" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="CheckPointTypeID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="AppVersion" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Column Name="Latitude" Type="System.String" DbType="NVarChar(250)" CanBeNull="true" />
+      <Column Name="Longitude" Type="System.String" DbType="NVarChar(250)" CanBeNull="true" />
+      <Column Name="StatusID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="CheckPoint_CheckPointWaybillDetail" Member="CheckPointWaybillDetails" ThisKey="ID" OtherKey="CheckPointID" Type="CheckPointWaybillDetail" />
+    </Type>
+  </Table>
+  <Table Name="dbo.CheckPointWaybillDetails" Member="CheckPointWaybillDetails">
+    <Type Name="CheckPointWaybillDetail">
+      <Column Name="ID" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="WaybillNo" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="IsSync" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Column Name="CheckPointID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="StatusID" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="CheckPoint_CheckPointWaybillDetail" Member="CheckPoint" ThisKey="CheckPointID" OtherKey="ID" Type="CheckPoint" IsForeignKey="true" />
+    </Type>
+  </Table>
+</Database>

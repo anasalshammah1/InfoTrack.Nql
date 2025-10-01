@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<AsrManifestShipmentDetailsAlt xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <ClientInfo>
+    <ClientAddress>
+      <PhoneNumber>055555555555</PhoneNumber>
+      <POBox />
+      <ZipCode />
+      <Fax />
+      <Latitude />
+      <Longitude />
+      <FirstAddress>test</FirstAddress>
+      <Location />
+      <CountryCode>KSA</CountryCode>
+      <CityCode>RUH</CityCode>
+    </ClientAddress>
+    <ClientContact>
+      <Name>Test</Name>
+      <Email>Test</Email>
+      <PhoneNumber>0555555555</PhoneNumber>
+      <MobileNo>0555555555</MobileNo>
+    </ClientContact>
+    <ClientID>9020077</ClientID>
+    <Password>API@Test</Password>
+    <Version>9.0</Version>
+  </ClientInfo>
+  <ConsigneeInfoAlt>
+    <ConsigneeNationalID>0</ConsigneeNationalID>
+    <ConsigneePassportNo />
+    <ConsigneePassportExp />
+    <ConsigneeNationality />
+    <ConsigneeName>test</ConsigneeName>
+    <Email />
+    <Mobile>0555555555</Mobile>
+    <PhoneNumber>0555555555</PhoneNumber>
+    <Fax />
+    <District />
+    <Address>test</Address>
+    <NationalAddress />
+    <Near />
+    <CountryName>SA</CountryName>
+    <ProvinceName>Al-Riyadh</ProvinceName>
+    <CityName>Kharj</CityName>
+  </ConsigneeInfoAlt>
+  <_CommercialInvoice>
+    <RefNo />
+    <InvoiceNo />
+    <InvoiceDate>2024-09-10T10:18:10.0286697+03:00</InvoiceDate>
+    <Consignee />
+    <ConsigneeAddress />
+    <ConsigneeEmail />
+    <MobileNo />
+    <Phone />
+    <TotalCost>0</TotalCost>
+    <CurrencyCode />
+    <CommercialInvoiceDetailList />
+  </_CommercialInvoice>
+  <PicesCount>1</PicesCount>
+  <WaybillNo>0</WaybillNo>
+  <OriginWaybillNo>0</OriginWaybillNo>
+  <RefNo>test1234</RefNo>
+  <LoadTypeID>66</LoadTypeID>
+  <DeclareValue>0</DeclareValue>
+  <CurrencyID>1</CurrencyID>
+  <PickUpDate>2024-09-11T00:00:00</PickUpDate>
+  <WaybillSurcharge>
+    <SurchargeIDList>
+      <int>8</int>
+    </SurchargeIDList>
+  </WaybillSurcharge>
+  <GoodDesc>1*item1|2*idress|3*hat444|2*short</GoodDesc>
+  <DeliveryInstruction />
+  <Latitude />
+  <Longitude />
+  <InsuredValue>0</InsuredValue>
+  <Reference1 />
+  <Reference2 />
+  <GoodsVATAmount>0</GoodsVATAmount>
+</AsrManifestShipmentDetailsAlt>

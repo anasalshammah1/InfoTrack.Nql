@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<ManifestShipmentDetails xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <ClientInfo>
+    <ClientAddress>
+      <PhoneNumber>555555555</PhoneNumber>
+      <POBox />
+      <ZipCode />
+      <Fax />
+      <Latitude />
+      <Longitude />
+      <FirstAddress>test</FirstAddress>
+      <Location>test</Location>
+      <CountryCode>KSA</CountryCode>
+      <CityCode>RUH</CityCode>
+    </ClientAddress>
+    <ClientContact>
+      <Name>Test Naqel</Name>
+      <Email>tets@naqel.com</Email>
+      <PhoneNumber>555555555</PhoneNumber>
+      <MobileNo>555555555</MobileNo>
+    </ClientContact>
+    <ClientID>9022477</ClientID>
+    <Password>90@S!L7</Password>
+    <Version>9.0</Version>
+  </ClientInfo>
+  <ConsigneeInfo>
+    <ConsigneeNationalID>0</ConsigneeNationalID>
+    <ConsigneePassportNo />
+    <ConsigneePassportExp />
+    <ConsigneeNationality />
+    <ConsigneeNationalIdExpiry />
+    <ConsigneeBirthDate />
+    <ConsigneeName>Test1</ConsigneeName>
+    <Email>test@naqel.com</Email>
+    <Mobile>0555555555</Mobile>
+    <PhoneNumber>0555555555</PhoneNumber>
+    <Fax />
+    <District />
+    <What3Words />
+    <SPLOfficeID />
+    <BuildingNo />
+    <ParcelLockerMachineID />
+    <Address>test</Address>
+    <NationalAddress />
+    <Near />
+    <CountryCode>KSA</CountryCode>
+    <CityCode>RUH</CityCode>
+  </ConsigneeInfo>
+  <_CommercialInvoice>
+    <RefNo />
+    <InvoiceNo />
+    <InvoiceDate>2024-09-15T11:45:58.7157899+03:00</InvoiceDate>
+    <Consignee />
+    <ConsigneeAddress />
+    <ConsigneeEmail />
+    <MobileNo />
+    <Phone />
+    <TotalCost>0</TotalCost>
+    <CurrencyCode />
+    <CommercialInvoiceDetailList />
+  </_CommercialInvoice>
+  <CurrenyID>1</CurrenyID>
+  <BillingType>5</BillingType>
+  <PicesCount>3</PicesCount>
+  <Weight>1</Weight>
+  <DeliveryInstruction />
+  <CODCharge>1</CODCharge>
+  <GeneratePiecesBarCodes>false</GeneratePiecesBarCodes>
+  <PromisedDeliveryDateFrom xsi:nil="true" />
+  <PromisedDeliveryDateTo xsi:nil="true" />
+  <LoadTypeID>36</LoadTypeID>
+  <GoodDesc />
+  <Incoterm />
+  <IncotermsPlaceAndNotes />
+  <Latitude />
+  <Longitude />
+  <RefNo>WB12300001</RefNo>
+  <Reference1 />
+  <Reference2 />
+  <Reference3 />
+  <Itempieces>
+    <ItemPieces>
+      <PieceBarcode>WB12300002</PieceBarcode>
+      <PieceDescription>hat</PieceDescription>
+    </ItemPieces>
+    <ItemPieces>
+      <PieceBarcode>WB12300003</PieceBarcode>
+      <PieceDescription>shoes</PieceDescription>
+    </ItemPieces>
+  </Itempieces>
+  <PickUpPoint />
+</ManifestShipmentDetails>

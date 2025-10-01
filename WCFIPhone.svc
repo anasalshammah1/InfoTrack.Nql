@@ -1,0 +1,1 @@
+﻿<%@ ServiceHost Language="C#" Debug="true" Service="InfoTrack.NaqelAPI.WCFIPhone" CodeBehind="WCFIPhone.svc.cs" %>

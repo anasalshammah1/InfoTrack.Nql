@@ -1,0 +1,76 @@
+==============================================
+
+ Message : Index was out of range. Must be non-negative and less than the size of the collection.
+Parameter name: index
+ User : -1 
+ Version : 1
+ Source : mscorlib
+ Date : 15/09/2024
+ Time : 1:13 PM
+
+-------------------------------------------------------------------------
+
+ TargetSite : Void ThrowArgumentOutOfRangeException(System.ExceptionArgument, System.ExceptionResource)
+ Data : System.Collections.ListDictionaryInternal
+ StackTrace :    at System.ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument argument, ExceptionResource resource)
+   at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at InfoTrack.NaqelAPI.XMLShippingService.CreateWaybill(ManifestShipmentDetails _ManifestShipmentDetails) in D:\APICode_TFS\InfoTrack.NaqelAPI\InfoTrack.NaqelAPI\InfoTrack.API\XMLShippingService.asmx.cs:line 943
+
+ ==============================================
+==============================================
+
+ Message : Index was out of range. Must be non-negative and less than the size of the collection.
+Parameter name: index
+ User : -1 
+ Version : 1
+ Source : mscorlib
+ Date : 15/09/2024
+ Time : 1:35 PM
+
+-------------------------------------------------------------------------
+
+ TargetSite : Void ThrowArgumentOutOfRangeException(System.ExceptionArgument, System.ExceptionResource)
+ Data : System.Collections.ListDictionaryInternal
+ StackTrace :    at System.ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument argument, ExceptionResource resource)
+   at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at InfoTrack.NaqelAPI.XMLShippingService.CreateWaybill(ManifestShipmentDetails _ManifestShipmentDetails) in D:\APICode_TFS\InfoTrack.NaqelAPI\InfoTrack.NaqelAPI\InfoTrack.API\XMLShippingService.asmx.cs:line 943
+
+ ==============================================
+==============================================
+
+ Message : Index was out of range. Must be non-negative and less than the size of the collection.
+Parameter name: index
+ User : -1 
+ Version : 1
+ Source : mscorlib
+ Date : 15/09/2024
+ Time : 1:37 PM
+
+-------------------------------------------------------------------------
+
+ TargetSite : Void ThrowArgumentOutOfRangeException(System.ExceptionArgument, System.ExceptionResource)
+ Data : System.Collections.ListDictionaryInternal
+ StackTrace :    at System.ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument argument, ExceptionResource resource)
+   at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at InfoTrack.NaqelAPI.XMLShippingService.CreateWaybill(ManifestShipmentDetails _ManifestShipmentDetails) in D:\APICode_TFS\InfoTrack.NaqelAPI\InfoTrack.NaqelAPI\InfoTrack.API\XMLShippingService.asmx.cs:line 943
+
+ ==============================================
+==============================================
+
+ Message : Index was out of range. Must be non-negative and less than the size of the collection.
+Parameter name: index
+ User : -1 
+ Version : 1
+ Source : mscorlib
+ Date : 15/09/2024
+ Time : 1:55 PM
+
+-------------------------------------------------------------------------
+
+ TargetSite : Void ThrowArgumentOutOfRangeException(System.ExceptionArgument, System.ExceptionResource)
+ Data : System.Collections.ListDictionaryInternal
+ StackTrace :    at System.ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument argument, ExceptionResource resource)
+   at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at InfoTrack.NaqelAPI.XMLShippingService.CreateWaybill(ManifestShipmentDetails _ManifestShipmentDetails) in D:\APICode_TFS\InfoTrack.NaqelAPI\InfoTrack.NaqelAPI\InfoTrack.API\XMLShippingService.asmx.cs:line 941
+
+ ==============================================

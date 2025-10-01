@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+<ManifestShipmentDetails xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <ClientInfo>
+    <ClientAddress>
+      <PhoneNumber>555555555</PhoneNumber>
+      <POBox />
+      <ZipCode />
+      <Fax />
+      <Latitude />
+      <Longitude />
+      <FirstAddress>Test Client Address</FirstAddress>
+      <Location />
+      <CountryCode>KSA</CountryCode>
+      <CityCode>RUH</CityCode>
+    </ClientAddress>
+    <ClientContact>
+      <Name>Client test</Name>
+      <Email />
+      <PhoneNumber>555555555</PhoneNumber>
+      <MobileNo>555555555</MobileNo>
+    </ClientContact>
+    <ClientID>9020077</ClientID>
+    <Password>API@Test</Password>
+    <Version>9.0</Version>
+  </ClientInfo>
+  <ConsigneeInfo>
+    <ConsigneeNationalID>0</ConsigneeNationalID>
+    <ConsigneePassportNo />
+    <ConsigneePassportExp />
+    <ConsigneeNationality />
+    <ConsigneeNationalIdExpiry />
+    <ConsigneeBirthDate />
+    <ConsigneeName>Reciver name 2 </ConsigneeName>
+    <Email />
+    <Mobile>0599527004</Mobile>
+    <PhoneNumber>0599527004</PhoneNumber>
+    <Fax />
+    <District />
+    <What3Words />
+    <BuildingNo />
+    <Address>Reciver Address 2</Address>
+    <NationalAddress />
+    <Near />
+    <CountryCode>KSA</CountryCode>
+    <CityCode>RUH</CityCode>
+  </ConsigneeInfo>
+  <_CommercialInvoice>
+    <RefNo />
+    <InvoiceNo />
+    <InvoiceDate>2024-07-15T11:59:07.2318534+03:00</InvoiceDate>
+    <Consignee />
+    <ConsigneeAddress />
+    <ConsigneeEmail />
+    <MobileNo />
+    <Phone />
+    <TotalCost>0</TotalCost>
+    <CurrencyCode />
+    <CommercialInvoiceDetailList />
+  </_CommercialInvoice>
+  <BillingType>1</BillingType>
+  <PicesCount>0</PicesCount>
+  <Weight>0.13</Weight>
+  <DeliveryInstruction />
+  <CODCharge>0</CODCharge>
+  <CreateBooking>true</CreateBooking>
+  <PromisedDeliveryDateFrom xsi:nil="true" />
+  <PromisedDeliveryDateTo xsi:nil="true" />
+  <LoadTypeID>36</LoadTypeID>
+  <GoodDesc />
+  <Incoterm />
+  <IncotermsPlaceAndNotes />
+  <Latitude />
+  <Longitude />
+  <RefNo>Test2_2002352753_PL</RefNo>
+  <Reference1 />
+  <Reference2 />
+  <Reference3 />
+  <PickUpPoint>0</PickUpPoint>
+</ManifestShipmentDetails>

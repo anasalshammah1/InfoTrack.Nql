@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<ManifestShipmentDetails xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <ClientInfo>
+    <ClientAddress>
+      <PhoneNumber>96655555555</PhoneNumber>
+      <POBox />
+      <ZipCode />
+      <Fax />
+      <Latitude />
+      <Longitude />
+      <FirstAddress>China</FirstAddress>
+      <Location>china</Location>
+      <CountryCode>AE</CountryCode>
+      <CityCode>DXB</CityCode>
+    </ClientAddress>
+    <ClientContact>
+      <Name>Abeer</Name>
+      <Email>test@naqel.com</Email>
+      <PhoneNumber>966112345678</PhoneNumber>
+      <MobileNo>966505555555</MobileNo>
+    </ClientContact>
+    <ClientID>9020077</ClientID>
+    <Password>API@Test</Password>
+    <Version>9.0</Version>
+  </ClientInfo>
+  <ConsigneeInfo>
+    <ConsigneeNationalID>0</ConsigneeNationalID>
+    <ConsigneePassportNo />
+    <ConsigneePassportExp />
+    <ConsigneeNationality />
+    <ConsigneeNationalIdExpiry />
+    <ConsigneeBirthDate />
+    <ConsigneeName>badword</ConsigneeName>
+    <Email>test@naqel.com</Email>
+    <Mobile>555070008</Mobile>
+    <PhoneNumber>555070008</PhoneNumber>
+    <Fax />
+    <District />
+    <What3Words />
+    <SPLOfficeID />
+    <BuildingNo />
+    <ParcelLockerMachineID />
+    <Address>test dist</Address>
+    <NationalAddress />
+    <Near />
+    <CountryCode>KSA</CountryCode>
+    <CityCode>JED</CityCode>
+  </ConsigneeInfo>
+  <_CommercialInvoice>
+    <RefNo>TestWB11_</RefNo>
+    <InvoiceDate>2022-05-23T00:00:00</InvoiceDate>
+    <Consignee>test</Consignee>
+    <ConsigneeAddress>test dist </ConsigneeAddress>
+    <ConsigneeEmail />
+    <MobileNo>9661123456789</MobileNo>
+    <Phone>9661123456789</Phone>
+    <TotalCost>1</TotalCost>
+    <CurrencyCode>SAR</CurrencyCode>
+    <CommercialInvoiceDetailList>
+      <CommercialInvoiceDetail>
+        <Quantity>1</Quantity>
+        <UnitType>pecies</UnitType>
+        <CountryofManufacture>CN</CountryofManufacture>
+        <Description>test</Description>
+        <ChineseDescription>test</ChineseDescription>
+        <UnitCost>1</UnitCost>
+        <CustomsCommodityCode>55547</CustomsCommodityCode>
+        <Currency>SAR</Currency>
+        <SKU />
+        <CPC />
+        <ItemWeightUnit>0</ItemWeightUnit>
+      </CommercialInvoiceDetail>
+    </CommercialInvoiceDetailList>
+  </_CommercialInvoice>
+  <CurrenyID>1</CurrenyID>
+  <BillingType>1</BillingType>
+  <PicesCount>1</PicesCount>
+  <Weight>1</Weight>
+  <DeliveryInstruction />
+  <CODCharge>0</CODCharge>
+  <GeneratePiecesBarCodes>false</GeneratePiecesBarCodes>
+  <PromisedDeliveryDateFrom xsi:nil="true" />
+  <PromisedDeliveryDateTo xsi:nil="true" />
+  <LoadTypeID>34</LoadTypeID>
+  <DeclareValue>20</DeclareValue>
+  <GoodDesc />
+  <Incoterm>DDU</Incoterm>
+  <IncotermsPlaceAndNotes />
+  <Latitude />
+  <Longitude />
+  <RefNo>TestWB11_1163421pp7747u</RefNo>
+  <Reference1 />
+  <Reference2 />
+  <Reference3 />
+  <PickUpPoint />
+</ManifestShipmentDetails>

@@ -1,0 +1,34 @@
+Name(en),Name(ar),Service Type,Status,Max Weight
+Express,Express,Express,Active,20000
+HW,HW,Express,Active,20000
+LTL,LTL,Express,Active,20000
+Box,Box,Express,Active,20000
+Pallet,Pallet,Express,Active,20000
+Half Load,Half Load,Express,Active,20000
+Full Load,Full Load,Express,Active,30000
+C12D,C12D,Document,Active,20000
+C12P,C12P,Document,Active,20000
+C12PAID,C12PAID,Document,Active,20000
+C9D,C9D,Document,Active,20000
+C9P,C9P,Document,Active,20000
+CSD,CSD,Document,Active,20000
+CSP,CSP,Document,Active,20000
+WED,WED,Document,Inactive,20000
+WEP,WEP,Document,Active,20000
+WEE,WEE,Document,Active,20000
+FF,FF,Freight Forwarding,Active,20000
+GCC,GCC,Document,Active,20000
+Prepaid,Prepaid,Document,Active,20000
+Drums,Drums,Express,Active,20000
+Express International,Express International,International,Active,20000
+FTL Int'l,FTL Int'l,International,Active,20000
+Courier Int'l,Courier Int'l,International Courier,Active,20000
+Document Int'l,Document Int'l,International Courier,Active,20000
+Non Document Int'l,Non Document Int'l,International Courier,Active,20000
+Document,Document,Domestic Courier,Active,20000
+Non Document,Non Document,Domestic Courier,Active,20000
+FTL Reefer ,FTL Reefer ,Express,Active,20000
+FTL-Drop Side,FTL-Drop Side,Express,Active,20000
+Express Domestic,Express Domestic,Express,Active,20000
+HW Domestic,HW Domestic,Express,Active,20000
+NAQEL Express Box 10 Kg,NAQEL Express Box 10 Kg,Domestic Courier,Active,10

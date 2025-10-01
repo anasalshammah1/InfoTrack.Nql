@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ordesignerObjectsDiagram dslVersion="1.0.0.0" absoluteBounds="0, 0, 11, 8.5" name="HHD">
+  <DataContextMoniker Name="/HHDDataContext" />
+  <nestedChildShapes>
+    <classShape Id="ea973100-4f22-4b5d-bad8-ed22966d648b" isExpanded="false" absoluteBounds="0.625, 0.5, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/PickUp" />
+      <nestedChildShapes>
+        <elementListCompartment Id="c4d7bf0e-2e52-4eb3-9af8-72ebade94ff4" absoluteBounds="0.64000000000000012, 0.96, 1.9700000000000002, 4.2877197265625" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <classShape Id="fe1b10b2-b4b8-439e-8b3e-568341d08e2f" isExpanded="false" absoluteBounds="0.625, 1.125, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/PickUpDetail" />
+      <nestedChildShapes>
+        <elementListCompartment Id="f6c5aa24-2b34-4ab1-832e-69c11eceeaea" absoluteBounds="0.63999999999999968, 1.585, 1.9700000000000002, 1.0185953776041665" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <associationConnector edgePoints="[(1.625 : 0.95); (1.625 : 1.125)]" fixedFrom="Algorithm" fixedTo="Algorithm">
+      <AssociationMoniker Name="/HHDDataContext/PickUp/PickUp_PickUpDetail" />
+      <nodes>
+        <classShapeMoniker Id="ea973100-4f22-4b5d-bad8-ed22966d648b" />
+        <classShapeMoniker Id="fe1b10b2-b4b8-439e-8b3e-568341d08e2f" />
+      </nodes>
+    </associationConnector>
+    <classShape Id="29181fa6-2ee7-4d53-a826-9ce6c46579f2" isExpanded="false" absoluteBounds="0.625, 1.75, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/UserMeLogin" />
+      <nestedChildShapes>
+        <elementListCompartment Id="dd370328-6ac5-4866-99d8-bd54ca61176d" absoluteBounds="0.63999999999999968, 2.21, 1.9700000000000002, 1.7878011067708335" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <classShape Id="24430c10-5ab4-4cd2-b430-20372a183d49" isExpanded="false" absoluteBounds="3, 1.125, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/OnDeliveryDetail" />
+      <nestedChildShapes>
+        <elementListCompartment Id="d86bca18-d0b3-4daa-aa5e-78cd8cc5ac0c" absoluteBounds="3.0149999999999997, 1.585, 1.9700000000000002, 1.0185953776041665" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <classShape Id="871b0638-7c15-4368-bc33-ebd549057eaf" isExpanded="false" absoluteBounds="3, 1.75, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/NotDelivered" />
+      <nestedChildShapes>
+        <elementListCompartment Id="64940c4b-91f2-4236-81a9-8138a91f5e38" absoluteBounds="3.015, 2.21, 1.9700000000000002, 2.5570068359375" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <classShape Id="8f80056c-8af5-4e44-87b7-fb1eb369a84d" isExpanded="false" absoluteBounds="3, 2.375, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/NotDeliveredDetail" />
+      <nestedChildShapes>
+        <elementListCompartment Id="433a90d9-d04a-4f96-9aa5-6d8e155cf2cc" absoluteBounds="3.015, 2.835, 1.9700000000000002, 1.0185953776041665" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <associationConnector edgePoints="[(3.84375 : 2.2); (3.84375 : 2.375)]" fixedFrom="NotFixed" fixedTo="NotFixed">
+      <AssociationMoniker Name="/HHDDataContext/NotDelivered/NotDelivered_NotDeliveredDetail" />
+      <nodes>
+        <classShapeMoniker Id="871b0638-7c15-4368-bc33-ebd549057eaf" />
+        <classShapeMoniker Id="8f80056c-8af5-4e44-87b7-fb1eb369a84d" />
+      </nodes>
+    </associationConnector>
+    <classShape Id="9f9659e6-9703-4e6b-9065-b1041ff79a8f" isExpanded="false" absoluteBounds="6.875, 1.75, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/OnCloadingForD" />
+      <nestedChildShapes>
+        <elementListCompartment Id="76c838da-28b3-4fe9-ad0a-f15a804cc97d" absoluteBounds="6.89, 2.21, 1.9700000000000002, 2.1724039713541665" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <classShape Id="243ec99e-4c87-4cb2-a706-5851fa5fd3be" isExpanded="false" absoluteBounds="7.125, 3.375, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/OnCLoadingForDDetail" />
+      <nestedChildShapes>
+        <elementListCompartment Id="faf30819-1d90-4d75-8727-cf260be3c5c0" absoluteBounds="7.1400000000000006, 3.835, 1.9700000000000002, 1.0185953776041665" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <classShape Id="cb64c6dd-d80e-47d6-84c2-e8d0c7a93aeb" isExpanded="false" absoluteBounds="6, 2.625, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/OnCLoadingForDWaybill" />
+      <nestedChildShapes>
+        <elementListCompartment Id="52fc16e7-fc79-49c2-b68e-199ba033077d" absoluteBounds="6.0150000000000006, 3.085, 1.9700000000000002, 1.0185953776041665" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <associationConnector edgePoints="[(8.46875 : 2.2); (8.46875 : 3.375)]" fixedFrom="NotFixed" fixedTo="NotFixed">
+      <AssociationMoniker Name="/HHDDataContext/OnCloadingForD/OnCloadingForD_OnCLoadingForDDetail" />
+      <nodes>
+        <classShapeMoniker Id="9f9659e6-9703-4e6b-9065-b1041ff79a8f" />
+        <classShapeMoniker Id="243ec99e-4c87-4cb2-a706-5851fa5fd3be" />
+      </nodes>
+    </associationConnector>
+    <associationConnector edgePoints="[(7.4375 : 2.2); (7.4375 : 2.625)]" fixedFrom="NotFixed" fixedTo="NotFixed">
+      <AssociationMoniker Name="/HHDDataContext/OnCloadingForD/OnCloadingForD_OnCLoadingForDWaybill" />
+      <nodes>
+        <classShapeMoniker Id="9f9659e6-9703-4e6b-9065-b1041ff79a8f" />
+        <classShapeMoniker Id="cb64c6dd-d80e-47d6-84c2-e8d0c7a93aeb" />
+      </nodes>
+    </associationConnector>
+    <classShape Id="97416555-32d3-4c70-ad69-ccdd05302c88" isExpanded="false" absoluteBounds="3, 0.5, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/OnDelivery" />
+      <nestedChildShapes>
+        <elementListCompartment Id="bd53cb0b-af04-4e68-9683-22321afd6d82" absoluteBounds="3.0149999999999997, 0.96, 1.9700000000000002, 3.518513997395833" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <associationConnector edgePoints="[(4 : 0.95); (4 : 1.125)]" fixedFrom="NotFixed" fixedTo="NotFixed">
+      <AssociationMoniker Name="/HHDDataContext/OnDelivery/OnDelivery_OnDeliveryDetail" />
+      <nodes>
+        <classShapeMoniker Id="97416555-32d3-4c70-ad69-ccdd05302c88" />
+        <classShapeMoniker Id="24430c10-5ab4-4cd2-b430-20372a183d49" />
+      </nodes>
+    </associationConnector>
+    <classShape Id="e566ceb9-b8dd-4256-81a3-d6a8c5ad6849" isExpanded="false" absoluteBounds="0.625, 2.375, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/CheckPoint" />
+      <nestedChildShapes>
+        <elementListCompartment Id="cd52d513-db23-451a-93a7-6b22d82e7d04" absoluteBounds="0.64, 2.835, 1.9700000000000002, 1.9801025390625" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <classShape Id="ea5e5981-274c-4a28-b173-8813b4078da7" isExpanded="false" absoluteBounds="0.625, 3, 2, 0.45">
+      <DataClassMoniker Name="/HHDDataContext/CheckPointWaybillDetail" />
+      <nestedChildShapes>
+        <elementListCompartment Id="ee78acca-036c-499e-99f7-5d083a4ceb16" absoluteBounds="0.64000000000000012, 3.46, 1.9700000000000002, 1.2108968098958333" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <associationConnector edgePoints="[(1.625 : 2.825); (1.625 : 3)]" fixedFrom="Algorithm" fixedTo="Algorithm">
+      <AssociationMoniker Name="/HHDDataContext/CheckPoint/CheckPoint_CheckPointWaybillDetail" />
+      <nodes>
+        <classShapeMoniker Id="e566ceb9-b8dd-4256-81a3-d6a8c5ad6849" />
+        <classShapeMoniker Id="ea5e5981-274c-4a28-b173-8813b4078da7" />
+      </nodes>
+    </associationConnector>
+  </nestedChildShapes>
+</ordesignerObjectsDiagram>

@@ -1,0 +1,1 @@
+﻿<%@ WebService Language="C#" CodeBehind="XMLShippingService.asmx.cs" Class="InfoTrack.NaqelAPI.XMLShippingService" %>

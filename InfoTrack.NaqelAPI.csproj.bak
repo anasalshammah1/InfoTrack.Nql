@@ -1,0 +1,797 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>
+    </ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{145DEDCB-43D8-49D4-9AB3-AD3629491120}</ProjectGuid>
+    <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>InfoTrack.NaqelAPI</RootNamespace>
+    <AssemblyName>InfoTrack.NaqelAPI</AssemblyName>
+    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <UseIISExpress>true</UseIISExpress>
+    <IISExpressSSLPort />
+    <IISExpressAnonymousAuthentication />
+    <IISExpressWindowsAuthentication />
+    <IISExpressUseClassicPipelineMode />
+    <TargetFrameworkProfile />
+    <WcfConfigValidationEnabled>True</WcfConfigValidationEnabled>
+    <UseGlobalApplicationHostFile />
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
+    <Use64BitIISExpress />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>
+    </DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PublishDatabases>true</PublishDatabases>
+    <CodeAnalysisIgnoreGeneratedCode>false</CodeAnalysisIgnoreGeneratedCode>
+    <IncludeIisSettings>false</IncludeIisSettings>
+    <UseVSHostingProcess>false</UseVSHostingProcess>
+    <Prefer32Bit>false</Prefer32Bit>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Dapper, Version=1.40.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\References\Dapper.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="Dapper.Contrib, Version=1.40.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\References\Dapper.Contrib.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="Dapper.Contrib.Ext, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\References\Dapper.Contrib.Ext.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.Charts.v21.1.Core, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.CodeParser.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.Data.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.DataAccess.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.Docs.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.ExpressApp.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+    <Reference Include="DevExpress.Office.v21.1.Core, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+    </Reference>
+    <Reference Include="DevExpress.Pdf.v21.1.Core, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.Pdf.v21.1.Drawing, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.Persistent.Base.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.PivotGrid.v21.1.Core, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+    </Reference>
+    <Reference Include="DevExpress.Printing.v21.1.Core, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+    </Reference>
+    <Reference Include="DevExpress.RichEdit.v21.1.Core, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+    </Reference>
+    <Reference Include="DevExpress.RichEdit.v21.1.Export, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.Sparkline.v21.1.Core, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.Data.Desktop.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.Utils.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.Utils.v21.1.UI, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+    </Reference>
+    <Reference Include="DevExpress.Xpo.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
+    <Reference Include="DevExpress.XtraCharts.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.XtraCharts.v21.1.UI, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+    </Reference>
+    <Reference Include="DevExpress.XtraGauges.v21.1.Core, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.XtraGrid.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+    </Reference>
+    <Reference Include="DevExpress.XtraReports.v21.1, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.XtraReports.v21.1.Service, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.XtraReports.v21.1.Web, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="DevExpress.XtraReports.v21.1.Web.WebForms, Version=21.1.5.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL">
+    </Reference>
+    <Reference Include="ICSharpCode.SharpZipLib">
+      <HintPath>..\References\ICSharpCode.SharpZipLib.dll</HintPath>
+    </Reference>
+    <Reference Include="InfoTrack.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Users\24184Sara\Desktop\AbeerBin\bin\InfoTrack.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="InfoTrack.Security, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\References\InfoTrack.Security.dll</HintPath>
+    </Reference>
+    <Reference Include="InfoTrack.SMS">
+      <HintPath>..\References\InfoTrack.SMS.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+    </Reference>
+    <Reference Include="NLog">
+      <HintPath>..\..\..\APICode - Copy\InfoTrack.NaqelAPI\InfoTrack.API\bin\NLog.dll</HintPath>
+    </Reference>
+    <Reference Include="RestSharp">
+      <HintPath>GeneralClass\RestSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Swashbuckle.Core">
+      <HintPath>..\References\Swashbuckle.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="System">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.ComponentModel.Composition">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Data">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Data.DataSetExtensions">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Data.Linq">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Drawing">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.ServiceModel">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.ServiceModel.Web">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Transactions">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web.ApplicationServices">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web.DynamicData">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web.Entity">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web.Extensions">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Windows.Forms">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Xml">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Configuration">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Web.Services">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.EnterpriseServices">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Xml.Linq">
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="App_Data\ClientData.xsc">
+      <DependentUpon>ClientData.xsd</DependentUpon>
+    </Content>
+    <Content Include="App_Data\ClientData.xss">
+      <DependentUpon>ClientData.xsd</DependentUpon>
+    </Content>
+    <Content Include="App_Data\GeneralDS.xsc">
+      <DependentUpon>GeneralDS.xsd</DependentUpon>
+    </Content>
+    <Content Include="App_Data\GeneralDS.xss">
+      <DependentUpon>GeneralDS.xsd</DependentUpon>
+    </Content>
+    <Content Include="App_Data\InfoTrackData.xsc">
+      <DependentUpon>InfoTrackData.xsd</DependentUpon>
+    </Content>
+    <Content Include="App_Data\InfoTrackData.xss">
+      <DependentUpon>InfoTrackData.xsd</DependentUpon>
+    </Content>
+    <Content Include="App_Data\InfoTrackSEData.xsc">
+      <DependentUpon>InfoTrackSEData.xsd</DependentUpon>
+    </Content>
+    <Content Include="App_Data\InfoTrackSEData.xss">
+      <DependentUpon>InfoTrackSEData.xsd</DependentUpon>
+    </Content>
+    <Content Include="WCFIPhone.svc" />
+    <Content Include="WCFRouteOptimization.svc" />
+    <Content Include="WCFShippingService.svc" />
+    <Content Include="Documentation\API Chart.vsd" />
+    <Content Include="Documentation\APIRequestForm.docx" />
+    <Content Include="Documentation\APIRequestForm.pdf" />
+    <Content Include="Documentation\LoadTypeList_201611-3-2016 12-00-00 AM.csv" />
+    <Content Include="Documentation\ShippingAPI.docx" />
+    <Content Include="Documentation\ShippingAPI.pdf" />
+    <Content Include="Documentation\ShippingAPIRestful.docx" />
+    <Content Include="Documentation\ShippingAPIRestful.pdf" />
+    <Content Include="Documentation\Tables.xlsx" />
+    <Content Include="XMLShippingService.asmx" />
+    <None Include="App_Data\ClientData.xsd">
+      <SubType>Designer</SubType>
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>ClientData.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="App_Data\GeneralDS.xsd">
+      <SubType>Designer</SubType>
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>GeneralDS.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="App_Data\InfoTrackData.xsd">
+      <SubType>Designer</SubType>
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>InfoTrackData.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="App_Data\InfoTrackSEData.xsd">
+      <SubType>Designer</SubType>
+      <Generator>MSDataSetGenerator</Generator>
+      <LastGenOutput>InfoTrackSEData1.Designer.cs</LastGenOutput>
+    </None>
+    <Content Include="packages.config" />
+    <Content Include="NLog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="NLog.xsd">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Properties\PublishProfiles\FolderProfile.pubxml" />
+    <None Include="Properties\PublishProfiles\FolderProfile1.pubxml" />
+    <None Include="Web References\com.naqelexpress.livetrack\Gpsservice.disco" />
+    <Content Include="Web.config">
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="XMLClientInfoTrack.asmx" />
+    <Content Include="XMLGeneral.asmx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="App_Data\ClientData.Designer.cs">
+      <DependentUpon>ClientData.xsd</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Include="App_Data\GeneralDS.Designer.cs">
+      <DependentUpon>GeneralDS.xsd</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Include="App_Data\InfoTrackData.Designer.cs">
+      <DependentUpon>InfoTrackData.xsd</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Include="App_Data\InfoTrackSEData.cs">
+      <DependentUpon>InfoTrackSEData.xsd</DependentUpon>
+    </Compile>
+    <Compile Include="App_Data\InfoTrackSEData1.Designer.cs">
+      <DependentUpon>InfoTrackSEData.xsd</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </Compile>
+    <Compile Include="BusinessObjects\rpInvoiceBarCode.cs" />
+    <Compile Include="BusinessObjects\rpInvoiceBarCodeAsr.cs" />
+    <Compile Include="BusinessObjects\rpCustomerBarCode.cs" />
+    <Compile Include="BusinessObjects\rpCustomerBarCodeAsr.cs" />
+    <Compile Include="BusinessObjects\rpCustomerBarCodeExpress.cs" />
+    <Compile Include="Class\AutomaticManifest.cs" />
+    <Compile Include="Class\DynamicLibrary.cs" />
+    <Compile Include="Class\Hit.cs" />
+    <Compile Include="Class\RouteOptimizationDataType.cs" />
+    <Compile Include="GeneralClass\Others\AsrManifestShipmentDetails.cs" />
+    <Compile Include="GeneralClass\Others\AsrManifestShipmentDetailsAlt.cs" />
+    <Compile Include="GeneralClass\Others\Callback.cs" />
+    <Compile Include="GeneralClass\Others\ClientTrackingDetails.cs" />
+    <Compile Include="GeneralClass\Others\CommercialInvoice.cs" />
+    <Compile Include="GeneralClass\Others\ConsigneeInformationAlt.cs" />
+    <Compile Include="GeneralClass\Others\ManifestShipmentDetailsAlt.cs" />
+    <Compile Include="GeneralClass\Others\PackageTrackingInformation.cs" />
+    <Compile Include="GeneralClass\Others\WaybillSurcharge.cs" />
+    <Compile Include="GeneralClass\OTS\BaseResult.cs" />
+    <Compile Include="GeneralClass\Others\BookingShipmentDetails.cs" />
+    <Compile Include="GeneralClass\Others\ClientBoooking.cs" />
+    <Compile Include="GeneralClass\Others\ClientInformation.cs" />
+    <Compile Include="GeneralClass\Others\ConsigneeInformation.cs" />
+    <Compile Include="GeneralClass\OTS\Core.cs" />
+    <Compile Include="GeneralClass\ValueFirst\BaseResult.cs" />
+    <Compile Include="GeneralClass\ValueFirst\CoreValueFirst.cs" />
+    <Compile Include="GeneralClass\Others\EnumList.cs" />
+    <Compile Include="GeneralClass\OTS\Message.cs" />
+    <Compile Include="GeneralClass\OTS\Messages.cs" />
+    <Compile Include="GeneralClass\Others\RequestNotificationDetails.cs" />
+    <Compile Include="GeneralClass\OTS\RestException.cs" />
+    <Compile Include="GeneralClass\Others\TransferFile.cs" />
+    <Compile Include="GeneralClass\ValueFirst\ValueFirstMessages.cs" />
+    <Compile Include="GlobalVar.cs" />
+    <Compile Include="GeneralClass\Others\ManifestShipmentDetails.cs" />
+    <Compile Include="GeneralClass\Others\Notification.cs" />
+    <Compile Include="GeneralClass\Others\ReturnData.cs" />
+    <Compile Include="Class\IPhoneDataTypes.cs" />
+    <Compile Include="Class\IWCFIPhone.cs" />
+    <Compile Include="App_Data\HHD.designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>HHD.dbml</DependentUpon>
+    </Compile>
+    <Compile Include="IWCFRouteOptimization.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Report\Asr_rpCustomerLabel4x6.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\Asr_rpCustomerLabel4x6.Designer.cs">
+      <DependentUpon>Asr_rpCustomerLabel4x6.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\Asr_rpCustomerLabel4x8.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\Asr_rpCustomerLabel4x8.designer.cs">
+      <DependentUpon>Asr_rpCustomerLabel4x8.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\Asr_rpCustomerLabelA4.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\Asr_rpCustomerLabelA4.designer.cs">
+      <DependentUpon>Asr_rpCustomerLabelA4.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\B2B_rpCustomerLabel4x6.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\B2B_rpCustomerLabel4x6.Designer.cs">
+      <DependentUpon>B2B_rpCustomerLabel4x6.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\ClientCommercialInvoiceASR.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\ClientCommercialInvoiceASR.Designer.cs">
+      <DependentUpon>ClientCommercialInvoiceASR.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\ClientCommericalInvoiceUAE.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\ClientCommericalInvoiceUAE.Designer.cs">
+      <DependentUpon>ClientCommericalInvoiceUAE.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\ClientCommercialInvoice1.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\ClientCommercialInvoice1.Designer.cs">
+      <DependentUpon>ClientCommercialInvoice1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\CommercialInvoice.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\CommercialInvoice.Designer.cs">
+      <DependentUpon>CommercialInvoice.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\DunyanaLabel4x4.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\DunyanaLabel4x4.Designer.cs">
+      <DependentUpon>DunyanaLabel4x4.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x4.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x4.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x4.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6ALJ.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6ALJ.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x6ALJ.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6ByAir.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6ByAir.designer.cs">
+      <DependentUpon>rpCustomerLabel4x6ByAir.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6ByRoad.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6ByRoad.designer.cs">
+      <DependentUpon>rpCustomerLabel4x6ByRoad.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6BySameDay.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6BySameDay.designer.cs">
+      <DependentUpon>rpCustomerLabel4x6BySameDay.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6Express.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6Express.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x6Express.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6Fragile.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6Fragile.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x6Fragile.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x8NoPhone.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x8NoPhone.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x8NoPhone.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6NoPhone.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6NoPhone.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x6NoPhone.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6QR.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6QR.designer.cs">
+      <DependentUpon>rpCustomerLabel4x6QR.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6Test.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6Test.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x6Test.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x7.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x7.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x7.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x8.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x8.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x8.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x6.Designer.cs">
+      <DependentUpon>rpCustomerLabel4x6.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x8SameDay.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabel4x8SameDay.designer.cs">
+      <DependentUpon>rpCustomerLabel4x8SameDay.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelA4ByAir.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelA4ByAir.Designer.cs">
+      <DependentUpon>rpCustomerLabelA4ByAir.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelA4ByRoad.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelA4ByRoad.Designer.cs">
+      <DependentUpon>rpCustomerLabelA4ByRoad.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelA4.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelA4.Designer.cs">
+      <DependentUpon>rpCustomerLabelA4.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelA4Test.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelA4Test.Designer.cs">
+      <DependentUpon>rpCustomerLabelA4Test.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelASR.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Report\rpCustomerLabelASR.designer.cs">
+      <DependentUpon>rpCustomerLabelASR.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Shipment.cs" />
+    <Compile Include="WCFIPhone.svc.cs">
+      <DependentUpon>WCFIPhone.svc</DependentUpon>
+    </Compile>
+    <Compile Include="Class\IWCFShippingService.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+    <Compile Include="Class\SchemaGenerated.cs">
+      <SubType>code</SubType>
+    </Compile>
+    <Compile Include="WCFRouteOptimization.svc.cs">
+      <DependentUpon>WCFRouteOptimization.svc</DependentUpon>
+    </Compile>
+    <Compile Include="WCFShippingService.svc.cs">
+      <DependentUpon>WCFShippingService.svc</DependentUpon>
+    </Compile>
+    <Compile Include="Web References\com.naqelexpress.livetrack\Reference.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Reference.map</DependentUpon>
+    </Compile>
+    <Compile Include="XMLClientInfoTrack.asmx.cs">
+      <DependentUpon>XMLClientInfoTrack.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="XMLGeneral.asmx.cs">
+      <DependentUpon>XMLGeneral.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="XmlShippingDal.cs" />
+    <Compile Include="XMLShippingService.asmx.cs">
+      <DependentUpon>XMLShippingService.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="App_Data\HHD.dbml">
+      <Generator>MSLinqToSQLGenerator</Generator>
+      <LastGenOutput>HHD.designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </Content>
+    <None Include="App_Data\HHD.dbml.layout">
+      <DependentUpon>HHD.dbml</DependentUpon>
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Properties\PublishProfiles\NaqelAPI.pubxml" />
+    <Content Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </Content>
+    <None Include="Web References\com.naqelexpress.livetrack\Gpsservice.wsdl" />
+    <None Include="Web References\com.naqelexpress.livetrack\Reference.map">
+      <Generator>MSDiscoCodeGenerator</Generator>
+      <LastGenOutput>Reference.cs</LastGenOutput>
+    </None>
+    <None Include="Web.Debug.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Release.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{3259AA49-8AA1-44D3-9025-A0B520596A8C}" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\licenses.licx" />
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\Asr_rpCustomerLabel4x6.resx">
+      <DependentUpon>Asr_rpCustomerLabel4x6.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\Asr_rpCustomerLabel4x8.resx">
+      <DependentUpon>Asr_rpCustomerLabel4x8.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\Asr_rpCustomerLabelA4.resx">
+      <DependentUpon>Asr_rpCustomerLabelA4.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\B2B_rpCustomerLabel4x6.resx">
+      <DependentUpon>B2B_rpCustomerLabel4x6.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\ClientCommercialInvoiceASR.resx">
+      <DependentUpon>ClientCommercialInvoiceASR.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\ClientCommericalInvoiceUAE.resx">
+      <DependentUpon>ClientCommericalInvoiceUAE.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\ClientCommercialInvoice1.resx">
+      <DependentUpon>ClientCommercialInvoice1.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\CommercialInvoice.resx">
+      <DependentUpon>CommercialInvoice.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\DunyanaLabel4x4.resx">
+      <DependentUpon>DunyanaLabel4x4.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x4.resx">
+      <DependentUpon>rpCustomerLabel4x4.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6ALJ.resx">
+      <DependentUpon>rpCustomerLabel4x6ALJ.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6ByAir.resx">
+      <DependentUpon>rpCustomerLabel4x6ByAir.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6ByRoad.resx">
+      <DependentUpon>rpCustomerLabel4x6ByRoad.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6BySameDay.resx">
+      <DependentUpon>rpCustomerLabel4x6BySameDay.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6Express.resx">
+      <DependentUpon>rpCustomerLabel4x6Express.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6Fragile.resx">
+      <DependentUpon>rpCustomerLabel4x6Fragile.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x8NoPhone.resx">
+      <DependentUpon>rpCustomerLabel4x8NoPhone.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6NoPhone.resx">
+      <DependentUpon>rpCustomerLabel4x6NoPhone.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6QR.resx">
+      <DependentUpon>rpCustomerLabel4x6QR.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6Test.resx">
+      <DependentUpon>rpCustomerLabel4x6Test.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x7.resx">
+      <DependentUpon>rpCustomerLabel4x7.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x8.resx">
+      <DependentUpon>rpCustomerLabel4x8.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x6.resx">
+      <DependentUpon>rpCustomerLabel4x6.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabel4x8SameDay.resx">
+      <DependentUpon>rpCustomerLabel4x8SameDay.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabelA4ByAir.resx">
+      <DependentUpon>rpCustomerLabelA4ByAir.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabelA4ByRoad.resx">
+      <DependentUpon>rpCustomerLabelA4ByRoad.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabelA4.resx">
+      <DependentUpon>rpCustomerLabelA4.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabelA4Test.resx">
+      <DependentUpon>rpCustomerLabelA4Test.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Report\rpCustomerLabelASR.resx">
+      <DependentUpon>rpCustomerLabelASR.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="XMLShippingService.asmx.resx">
+      <DependentUpon>XMLShippingService.asmx.cs</DependentUpon>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\InfoTrack.BusinessLayer\InfoTrack.BusinessLayer.csproj">
+      <Project>{e1781b3e-cf18-4bb9-a747-020772d51da1}</Project>
+      <Name>InfoTrack.BusinessLayer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InfoTrack.Common\InfoTrack.Common.csproj">
+      <Project>{587ebf4a-9f9a-42d2-980e-774c41661cdf}</Project>
+      <Name>InfoTrack.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InfoTrack.Localization\InfoTrack.Localization.csproj">
+      <Project>{4522061b-eab3-4081-8833-f45c53cfe2ff}</Project>
+      <Name>InfoTrack.Localization</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InfoTrack.BusinessLayer\InfoTrack.BusinessLayer.csproj">
+      <Project>{e1781b3e-cf18-4bb9-a747-020772d51da1}</Project>
+      <Name>InfoTrack.BusinessLayer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InfoTrack.Common\InfoTrack.Common.csproj">
+      <Project>{587ebf4a-9f9a-42d2-980e-774c41661cdf}</Project>
+      <Name>InfoTrack.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InfoTrack.Common\InfoTrack.Common.csproj">
+      <Project>{587ebf4a-9f9a-42d2-980e-774c41661cdf}</Project>
+      <Name>InfoTrack.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InfoTrack.Localization\InfoTrack.Localization.csproj">
+      <Project>{4522061b-eab3-4081-8833-f45c53cfe2ff}</Project>
+      <Name>InfoTrack.Localization</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\InfoTrack.Localization\InfoTrack.Localization.csproj">
+      <Project>{4522061b-eab3-4081-8833-f45c53cfe2ff}</Project>
+      <Name>InfoTrack.Localization</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
+  </ItemGroup>
+  <ItemGroup>
+    <WebReferences Include="Web References\" />
+  </ItemGroup>
+  <ItemGroup>
+    <WebReferenceUrl Include="http://livetrack.naqelexpress.com/livetracking/Gpsservice.asmx">
+      <UrlBehavior>Dynamic</UrlBehavior>
+      <RelPath>Web References\com.naqelexpress.livetrack\</RelPath>
+      <UpdateFromURL>http://livetrack.naqelexpress.com/livetracking/Gpsservice.asmx</UpdateFromURL>
+      <ServiceLocationURL>
+      </ServiceLocationURL>
+      <CachedDynamicPropName>
+      </CachedDynamicPropName>
+      <CachedAppSettingsObjectName>Settings</CachedAppSettingsObjectName>
+      <CachedSettingsPropName>InfoTrack_NaqelAPI_com_naqelexpress_livetrack_GPSService</CachedSettingsPropName>
+    </WebReferenceUrl>
+  </ItemGroup>
+  <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
+        <WebProjectProperties>
+          <UseIIS>True</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>50522</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>http://localhost:50553/</IISUrl>
+          <OverrideIISAppRootUrl>True</OverrideIISAppRootUrl>
+          <IISAppRootUrl>http://localhost:50553/</IISAppRootUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>False</UseCustomServer>
+          <CustomServerUrl>
+          </CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

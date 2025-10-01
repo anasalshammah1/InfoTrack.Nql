@@ -1,0 +1,1 @@
+﻿<%@ WebService Language="C#" CodeBehind="XMLHHD1.asmx.cs" Class="InfoTrack.NaqelAPI.XMLHHD" %>

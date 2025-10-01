@@ -1,0 +1,16 @@
+==============================================
+
+ Message : Object reference not set to an instance of an object.
+ User : -1 
+ Version : 1
+ Source : InfoTrack.NaqelAPI
+ Date : 13/08/2024
+ Time : 9:39 AM
+
+-------------------------------------------------------------------------
+
+ TargetSite : Void WritetoXMLUpdateWaybill(System.Object, InfoTrack.NaqelAPI.ClientInformation, System.String, MethodType)
+ Data : System.Collections.ListDictionaryInternal
+ StackTrace :    at InfoTrack.NaqelAPI.XMLShippingService.WritetoXMLUpdateWaybill(Object myObject, ClientInformation _ClientInfo, String reference, MethodType methodType) in D:\APICode_TFS\InfoTrack.NaqelAPI\InfoTrack.NaqelAPI\InfoTrack.API\XMLShippingService.asmx.cs:line 4409
+
+ ==============================================

@@ -1,0 +1,1471 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:tns="http://tempuri.org/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" targetNamespace="http://tempuri.org/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <s:schema elementFormDefault="qualified" targetNamespace="http://tempuri.org/">
+      <s:element name="Login">
+        <s:complexType />
+      </s:element>
+      <s:element name="LoginResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="LoginResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="Logout">
+        <s:complexType />
+      </s:element>
+      <s:element name="LogoutResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="LogoutResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetSpeedAlerts">
+        <s:complexType />
+      </s:element>
+      <s:element name="GetSpeedAlertsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetSpeedAlertsResult" type="tns:ArrayOfString" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="ArrayOfString">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="string" nillable="true" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="getGeofenceReport">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="param" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="FromD" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToD" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="getGeofenceReportResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="getGeofenceReportResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="getVehicleEventStatus">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="param" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="FromD" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToD" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="getVehicleEventStatusResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="getVehicleEventStatusResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="getVehicleSpeedStatus">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="param" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="FromD" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToD" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="InpSpeed" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="getVehicleSpeedStatusResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="getVehicleSpeedStatusResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="DashboadStatus">
+        <s:complexType />
+      </s:element>
+      <s:element name="DashboadStatusResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DashboadStatusResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="DashBoradSpeedAlert">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="SelGroup" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="DashBoradSpeedAlertResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="DashBoradSpeedAlertResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetEmployees">
+        <s:complexType />
+      </s:element>
+      <s:element name="GetEmployeesResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetEmployeesResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetlocationByWaybill">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="waybillno" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetlocationByWaybillResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetlocationByWaybillResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetCurrentLOcationByWaybill">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="waybillno" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetCurrentLOcationByWaybillResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetCurrentLOcationByWaybillResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetlocationByTripID">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="tripid" type="s:int" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetlocationByTripIDResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetlocationByTripIDResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetTripDetails">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="truckno" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetTripDetailsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetTripDetailsResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetDeliverySheetDetails">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="FromDate" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToDate" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="TName" type="s:string" />
+            <s:element minOccurs="1" maxOccurs="1" name="Istruck" type="s:boolean" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetDeliverySheetDetailsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetDeliverySheetDetailsResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetDeliverySheetDetailsWithCname">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="FromDate" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToDate" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="TTName" type="s:string" />
+            <s:element minOccurs="1" maxOccurs="1" name="Istruck" type="s:boolean" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetDeliverySheetDetailsWithCnameResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetDeliverySheetDetailsWithCnameResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetTotalTripDetails">
+        <s:complexType />
+      </s:element>
+      <s:element name="GetTotalTripDetailsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetTotalTripDetailsResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetTotalWashedDetails">
+        <s:complexType />
+      </s:element>
+      <s:element name="GetTotalWashedDetailsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetTotalWashedDetailsResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetBreakdownDetails">
+        <s:complexType />
+      </s:element>
+      <s:element name="GetBreakdownDetailsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetBreakdownDetailsResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="IdlleCumulative">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Rptfilter" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="deviceid" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="FromD" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToD" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="IdlleCumulativeResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="IdlleCumulativeResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="IdlleCumulativeByGroup">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Rptfilter" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="group" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="FromD" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToD" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="IdlleCumulativeByGroupResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="IdlleCumulativeByGroupResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AutoIdlleCumulativeByGroup">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Rptfilter" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="group" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="FromD" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToD" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AutoIdlleCumulativeByGroupResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="AutoIdlleCumulativeByGroupResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetEmployeeMaster">
+        <s:complexType />
+      </s:element>
+      <s:element name="GetEmployeeMasterResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetEmployeeMasterResult">
+              <s:complexType>
+                <s:sequence>
+                  <s:any minOccurs="0" maxOccurs="unbounded" namespace="http://www.w3.org/2001/XMLSchema" processContents="lax" />
+                  <s:any minOccurs="1" namespace="urn:schemas-microsoft-com:xml-diffgram-v1" processContents="lax" />
+                </s:sequence>
+              </s:complexType>
+            </s:element>
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetEmployeePhotoByID">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="empid" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetEmployeePhotoByIDResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetEmployeePhotoByIDResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetDeviceMaster">
+        <s:complexType />
+      </s:element>
+      <s:element name="GetDeviceMasterResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetDeviceMasterResult">
+              <s:complexType>
+                <s:sequence>
+                  <s:any minOccurs="0" maxOccurs="unbounded" namespace="http://www.w3.org/2001/XMLSchema" processContents="lax" />
+                  <s:any minOccurs="1" namespace="urn:schemas-microsoft-com:xml-diffgram-v1" processContents="lax" />
+                </s:sequence>
+              </s:complexType>
+            </s:element>
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="CumulativeWorking">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="Rptfilter" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="deviceid" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="FromD" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="ToD" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="CumulativeWorkingResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="CumulativeWorkingResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendSMS">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="MobileNo" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="Message" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="SendSMSResponse">
+        <s:complexType />
+      </s:element>
+      <s:element name="GetCurrentLocatation">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="truckno" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetCurrentLocatationResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetCurrentLocatationResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetFleetDetails">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="truckno" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetFleetDetailsResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetFleetDetailsResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="UpdateGeofenceAlert">
+        <s:complexType />
+      </s:element>
+      <s:element name="UpdateGeofenceAlertResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="UpdateGeofenceAlertResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetGeofenceLocationName">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="items" type="tns:ArrayOfGeofence" />
+            <s:element minOccurs="0" maxOccurs="1" name="Latitude" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="Longitude" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="ArrayOfGeofence">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="Geofence" nillable="true" type="tns:Geofence" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="Geofence">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="ID" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="Label" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="Icon" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="Color" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="Geotype" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="Locations" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="GeoShape" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="GetGeofenceLocationNameResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetGeofenceLocationNameResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetLocationName">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="items" type="tns:ArrayOfGeofence" />
+            <s:element minOccurs="0" maxOccurs="1" name="Latitude" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="Longitude" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetLocationNameResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetLocationNameResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="ReverseGeoLoc">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="longitude" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="latitude" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="ReverseGeoLocResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="ReverseGeoLocResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="IsPresentInGeofenceCircle">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="data" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="_LatLng" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="IsPresentInGeofenceCircleResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="IsPresentInGeofenceCircleResult" type="s:boolean" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="IsPresentInGeofencePolygon">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="data" type="s:string" />
+            <s:element minOccurs="0" maxOccurs="1" name="_LatLng" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="IsPresentInGeofencePolygonResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="1" maxOccurs="1" name="IsPresentInGeofencePolygonResult" type="s:boolean" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+    </s:schema>
+  </wsdl:types>
+  <wsdl:message name="LoginSoapIn">
+    <wsdl:part name="parameters" element="tns:Login" />
+  </wsdl:message>
+  <wsdl:message name="LoginSoapOut">
+    <wsdl:part name="parameters" element="tns:LoginResponse" />
+  </wsdl:message>
+  <wsdl:message name="LogoutSoapIn">
+    <wsdl:part name="parameters" element="tns:Logout" />
+  </wsdl:message>
+  <wsdl:message name="LogoutSoapOut">
+    <wsdl:part name="parameters" element="tns:LogoutResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetSpeedAlertsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetSpeedAlerts" />
+  </wsdl:message>
+  <wsdl:message name="GetSpeedAlertsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetSpeedAlertsResponse" />
+  </wsdl:message>
+  <wsdl:message name="getGeofenceReportSoapIn">
+    <wsdl:part name="parameters" element="tns:getGeofenceReport" />
+  </wsdl:message>
+  <wsdl:message name="getGeofenceReportSoapOut">
+    <wsdl:part name="parameters" element="tns:getGeofenceReportResponse" />
+  </wsdl:message>
+  <wsdl:message name="getVehicleEventStatusSoapIn">
+    <wsdl:part name="parameters" element="tns:getVehicleEventStatus" />
+  </wsdl:message>
+  <wsdl:message name="getVehicleEventStatusSoapOut">
+    <wsdl:part name="parameters" element="tns:getVehicleEventStatusResponse" />
+  </wsdl:message>
+  <wsdl:message name="getVehicleSpeedStatusSoapIn">
+    <wsdl:part name="parameters" element="tns:getVehicleSpeedStatus" />
+  </wsdl:message>
+  <wsdl:message name="getVehicleSpeedStatusSoapOut">
+    <wsdl:part name="parameters" element="tns:getVehicleSpeedStatusResponse" />
+  </wsdl:message>
+  <wsdl:message name="DashboadStatusSoapIn">
+    <wsdl:part name="parameters" element="tns:DashboadStatus" />
+  </wsdl:message>
+  <wsdl:message name="DashboadStatusSoapOut">
+    <wsdl:part name="parameters" element="tns:DashboadStatusResponse" />
+  </wsdl:message>
+  <wsdl:message name="DashBoradSpeedAlertSoapIn">
+    <wsdl:part name="parameters" element="tns:DashBoradSpeedAlert" />
+  </wsdl:message>
+  <wsdl:message name="DashBoradSpeedAlertSoapOut">
+    <wsdl:part name="parameters" element="tns:DashBoradSpeedAlertResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetEmployeesSoapIn">
+    <wsdl:part name="parameters" element="tns:GetEmployees" />
+  </wsdl:message>
+  <wsdl:message name="GetEmployeesSoapOut">
+    <wsdl:part name="parameters" element="tns:GetEmployeesResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetlocationByWaybillSoapIn">
+    <wsdl:part name="parameters" element="tns:GetlocationByWaybill" />
+  </wsdl:message>
+  <wsdl:message name="GetlocationByWaybillSoapOut">
+    <wsdl:part name="parameters" element="tns:GetlocationByWaybillResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetCurrentLOcationByWaybillSoapIn">
+    <wsdl:part name="parameters" element="tns:GetCurrentLOcationByWaybill" />
+  </wsdl:message>
+  <wsdl:message name="GetCurrentLOcationByWaybillSoapOut">
+    <wsdl:part name="parameters" element="tns:GetCurrentLOcationByWaybillResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetlocationByTripIDSoapIn">
+    <wsdl:part name="parameters" element="tns:GetlocationByTripID" />
+  </wsdl:message>
+  <wsdl:message name="GetlocationByTripIDSoapOut">
+    <wsdl:part name="parameters" element="tns:GetlocationByTripIDResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetTripDetailsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetTripDetails" />
+  </wsdl:message>
+  <wsdl:message name="GetTripDetailsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetTripDetailsResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetDeliverySheetDetailsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetDeliverySheetDetails" />
+  </wsdl:message>
+  <wsdl:message name="GetDeliverySheetDetailsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetDeliverySheetDetailsResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetDeliverySheetDetailsWithCnameSoapIn">
+    <wsdl:part name="parameters" element="tns:GetDeliverySheetDetailsWithCname" />
+  </wsdl:message>
+  <wsdl:message name="GetDeliverySheetDetailsWithCnameSoapOut">
+    <wsdl:part name="parameters" element="tns:GetDeliverySheetDetailsWithCnameResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetTotalTripDetailsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetTotalTripDetails" />
+  </wsdl:message>
+  <wsdl:message name="GetTotalTripDetailsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetTotalTripDetailsResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetTotalWashedDetailsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetTotalWashedDetails" />
+  </wsdl:message>
+  <wsdl:message name="GetTotalWashedDetailsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetTotalWashedDetailsResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetBreakdownDetailsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetBreakdownDetails" />
+  </wsdl:message>
+  <wsdl:message name="GetBreakdownDetailsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetBreakdownDetailsResponse" />
+  </wsdl:message>
+  <wsdl:message name="IdlleCumulativeSoapIn">
+    <wsdl:part name="parameters" element="tns:IdlleCumulative" />
+  </wsdl:message>
+  <wsdl:message name="IdlleCumulativeSoapOut">
+    <wsdl:part name="parameters" element="tns:IdlleCumulativeResponse" />
+  </wsdl:message>
+  <wsdl:message name="IdlleCumulativeByGroupSoapIn">
+    <wsdl:part name="parameters" element="tns:IdlleCumulativeByGroup" />
+  </wsdl:message>
+  <wsdl:message name="IdlleCumulativeByGroupSoapOut">
+    <wsdl:part name="parameters" element="tns:IdlleCumulativeByGroupResponse" />
+  </wsdl:message>
+  <wsdl:message name="AutoIdlleCumulativeByGroupSoapIn">
+    <wsdl:part name="parameters" element="tns:AutoIdlleCumulativeByGroup" />
+  </wsdl:message>
+  <wsdl:message name="AutoIdlleCumulativeByGroupSoapOut">
+    <wsdl:part name="parameters" element="tns:AutoIdlleCumulativeByGroupResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetEmployeeMasterSoapIn">
+    <wsdl:part name="parameters" element="tns:GetEmployeeMaster" />
+  </wsdl:message>
+  <wsdl:message name="GetEmployeeMasterSoapOut">
+    <wsdl:part name="parameters" element="tns:GetEmployeeMasterResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetEmployeePhotoByIDSoapIn">
+    <wsdl:part name="parameters" element="tns:GetEmployeePhotoByID" />
+  </wsdl:message>
+  <wsdl:message name="GetEmployeePhotoByIDSoapOut">
+    <wsdl:part name="parameters" element="tns:GetEmployeePhotoByIDResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetDeviceMasterSoapIn">
+    <wsdl:part name="parameters" element="tns:GetDeviceMaster" />
+  </wsdl:message>
+  <wsdl:message name="GetDeviceMasterSoapOut">
+    <wsdl:part name="parameters" element="tns:GetDeviceMasterResponse" />
+  </wsdl:message>
+  <wsdl:message name="CumulativeWorkingSoapIn">
+    <wsdl:part name="parameters" element="tns:CumulativeWorking" />
+  </wsdl:message>
+  <wsdl:message name="CumulativeWorkingSoapOut">
+    <wsdl:part name="parameters" element="tns:CumulativeWorkingResponse" />
+  </wsdl:message>
+  <wsdl:message name="SendSMSSoapIn">
+    <wsdl:part name="parameters" element="tns:SendSMS" />
+  </wsdl:message>
+  <wsdl:message name="SendSMSSoapOut">
+    <wsdl:part name="parameters" element="tns:SendSMSResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetCurrentLocatationSoapIn">
+    <wsdl:part name="parameters" element="tns:GetCurrentLocatation" />
+  </wsdl:message>
+  <wsdl:message name="GetCurrentLocatationSoapOut">
+    <wsdl:part name="parameters" element="tns:GetCurrentLocatationResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetFleetDetailsSoapIn">
+    <wsdl:part name="parameters" element="tns:GetFleetDetails" />
+  </wsdl:message>
+  <wsdl:message name="GetFleetDetailsSoapOut">
+    <wsdl:part name="parameters" element="tns:GetFleetDetailsResponse" />
+  </wsdl:message>
+  <wsdl:message name="UpdateGeofenceAlertSoapIn">
+    <wsdl:part name="parameters" element="tns:UpdateGeofenceAlert" />
+  </wsdl:message>
+  <wsdl:message name="UpdateGeofenceAlertSoapOut">
+    <wsdl:part name="parameters" element="tns:UpdateGeofenceAlertResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetGeofenceLocationNameSoapIn">
+    <wsdl:part name="parameters" element="tns:GetGeofenceLocationName" />
+  </wsdl:message>
+  <wsdl:message name="GetGeofenceLocationNameSoapOut">
+    <wsdl:part name="parameters" element="tns:GetGeofenceLocationNameResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetLocationNameSoapIn">
+    <wsdl:part name="parameters" element="tns:GetLocationName" />
+  </wsdl:message>
+  <wsdl:message name="GetLocationNameSoapOut">
+    <wsdl:part name="parameters" element="tns:GetLocationNameResponse" />
+  </wsdl:message>
+  <wsdl:message name="ReverseGeoLocSoapIn">
+    <wsdl:part name="parameters" element="tns:ReverseGeoLoc" />
+  </wsdl:message>
+  <wsdl:message name="ReverseGeoLocSoapOut">
+    <wsdl:part name="parameters" element="tns:ReverseGeoLocResponse" />
+  </wsdl:message>
+  <wsdl:message name="IsPresentInGeofenceCircleSoapIn">
+    <wsdl:part name="parameters" element="tns:IsPresentInGeofenceCircle" />
+  </wsdl:message>
+  <wsdl:message name="IsPresentInGeofenceCircleSoapOut">
+    <wsdl:part name="parameters" element="tns:IsPresentInGeofenceCircleResponse" />
+  </wsdl:message>
+  <wsdl:message name="IsPresentInGeofencePolygonSoapIn">
+    <wsdl:part name="parameters" element="tns:IsPresentInGeofencePolygon" />
+  </wsdl:message>
+  <wsdl:message name="IsPresentInGeofencePolygonSoapOut">
+    <wsdl:part name="parameters" element="tns:IsPresentInGeofencePolygonResponse" />
+  </wsdl:message>
+  <wsdl:portType name="GPSServiceSoap">
+    <wsdl:operation name="Login">
+      <wsdl:input message="tns:LoginSoapIn" />
+      <wsdl:output message="tns:LoginSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="Logout">
+      <wsdl:input message="tns:LogoutSoapIn" />
+      <wsdl:output message="tns:LogoutSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetSpeedAlerts">
+      <wsdl:input message="tns:GetSpeedAlertsSoapIn" />
+      <wsdl:output message="tns:GetSpeedAlertsSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="getGeofenceReport">
+      <wsdl:input message="tns:getGeofenceReportSoapIn" />
+      <wsdl:output message="tns:getGeofenceReportSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="getVehicleEventStatus">
+      <wsdl:input message="tns:getVehicleEventStatusSoapIn" />
+      <wsdl:output message="tns:getVehicleEventStatusSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="getVehicleSpeedStatus">
+      <wsdl:input message="tns:getVehicleSpeedStatusSoapIn" />
+      <wsdl:output message="tns:getVehicleSpeedStatusSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="DashboadStatus">
+      <wsdl:input message="tns:DashboadStatusSoapIn" />
+      <wsdl:output message="tns:DashboadStatusSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="DashBoradSpeedAlert">
+      <wsdl:input message="tns:DashBoradSpeedAlertSoapIn" />
+      <wsdl:output message="tns:DashBoradSpeedAlertSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployees">
+      <wsdl:input message="tns:GetEmployeesSoapIn" />
+      <wsdl:output message="tns:GetEmployeesSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetlocationByWaybill">
+      <wsdl:input message="tns:GetlocationByWaybillSoapIn" />
+      <wsdl:output message="tns:GetlocationByWaybillSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetCurrentLOcationByWaybill">
+      <wsdl:input message="tns:GetCurrentLOcationByWaybillSoapIn" />
+      <wsdl:output message="tns:GetCurrentLOcationByWaybillSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetlocationByTripID">
+      <wsdl:input message="tns:GetlocationByTripIDSoapIn" />
+      <wsdl:output message="tns:GetlocationByTripIDSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetTripDetails">
+      <wsdl:input message="tns:GetTripDetailsSoapIn" />
+      <wsdl:output message="tns:GetTripDetailsSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetDeliverySheetDetails">
+      <wsdl:input message="tns:GetDeliverySheetDetailsSoapIn" />
+      <wsdl:output message="tns:GetDeliverySheetDetailsSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetDeliverySheetDetailsWithCname">
+      <wsdl:input message="tns:GetDeliverySheetDetailsWithCnameSoapIn" />
+      <wsdl:output message="tns:GetDeliverySheetDetailsWithCnameSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetTotalTripDetails">
+      <wsdl:input message="tns:GetTotalTripDetailsSoapIn" />
+      <wsdl:output message="tns:GetTotalTripDetailsSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetTotalWashedDetails">
+      <wsdl:input message="tns:GetTotalWashedDetailsSoapIn" />
+      <wsdl:output message="tns:GetTotalWashedDetailsSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetBreakdownDetails">
+      <wsdl:input message="tns:GetBreakdownDetailsSoapIn" />
+      <wsdl:output message="tns:GetBreakdownDetailsSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="IdlleCumulative">
+      <wsdl:input message="tns:IdlleCumulativeSoapIn" />
+      <wsdl:output message="tns:IdlleCumulativeSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="IdlleCumulativeByGroup">
+      <wsdl:input message="tns:IdlleCumulativeByGroupSoapIn" />
+      <wsdl:output message="tns:IdlleCumulativeByGroupSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="AutoIdlleCumulativeByGroup">
+      <wsdl:input message="tns:AutoIdlleCumulativeByGroupSoapIn" />
+      <wsdl:output message="tns:AutoIdlleCumulativeByGroupSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployeeMaster">
+      <wsdl:input message="tns:GetEmployeeMasterSoapIn" />
+      <wsdl:output message="tns:GetEmployeeMasterSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployeePhotoByID">
+      <wsdl:input message="tns:GetEmployeePhotoByIDSoapIn" />
+      <wsdl:output message="tns:GetEmployeePhotoByIDSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetDeviceMaster">
+      <wsdl:input message="tns:GetDeviceMasterSoapIn" />
+      <wsdl:output message="tns:GetDeviceMasterSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="CumulativeWorking">
+      <wsdl:input message="tns:CumulativeWorkingSoapIn" />
+      <wsdl:output message="tns:CumulativeWorkingSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="SendSMS">
+      <wsdl:input message="tns:SendSMSSoapIn" />
+      <wsdl:output message="tns:SendSMSSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetCurrentLocatation">
+      <wsdl:input message="tns:GetCurrentLocatationSoapIn" />
+      <wsdl:output message="tns:GetCurrentLocatationSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetFleetDetails">
+      <wsdl:input message="tns:GetFleetDetailsSoapIn" />
+      <wsdl:output message="tns:GetFleetDetailsSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="UpdateGeofenceAlert">
+      <wsdl:input message="tns:UpdateGeofenceAlertSoapIn" />
+      <wsdl:output message="tns:UpdateGeofenceAlertSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetGeofenceLocationName">
+      <wsdl:input message="tns:GetGeofenceLocationNameSoapIn" />
+      <wsdl:output message="tns:GetGeofenceLocationNameSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetLocationName">
+      <wsdl:input message="tns:GetLocationNameSoapIn" />
+      <wsdl:output message="tns:GetLocationNameSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="ReverseGeoLoc">
+      <wsdl:input message="tns:ReverseGeoLocSoapIn" />
+      <wsdl:output message="tns:ReverseGeoLocSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="IsPresentInGeofenceCircle">
+      <wsdl:input message="tns:IsPresentInGeofenceCircleSoapIn" />
+      <wsdl:output message="tns:IsPresentInGeofenceCircleSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="IsPresentInGeofencePolygon">
+      <wsdl:input message="tns:IsPresentInGeofencePolygonSoapIn" />
+      <wsdl:output message="tns:IsPresentInGeofencePolygonSoapOut" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="GPSServiceSoap" type="tns:GPSServiceSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="Login">
+      <soap:operation soapAction="http://tempuri.org/Login" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Logout">
+      <soap:operation soapAction="http://tempuri.org/Logout" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetSpeedAlerts">
+      <soap:operation soapAction="http://tempuri.org/GetSpeedAlerts" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getGeofenceReport">
+      <soap:operation soapAction="http://tempuri.org/getGeofenceReport" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getVehicleEventStatus">
+      <soap:operation soapAction="http://tempuri.org/getVehicleEventStatus" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getVehicleSpeedStatus">
+      <soap:operation soapAction="http://tempuri.org/getVehicleSpeedStatus" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="DashboadStatus">
+      <soap:operation soapAction="http://tempuri.org/DashboadStatus" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="DashBoradSpeedAlert">
+      <soap:operation soapAction="http://tempuri.org/DashBoradSpeedAlert" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployees">
+      <soap:operation soapAction="http://tempuri.org/GetEmployees" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetlocationByWaybill">
+      <soap:operation soapAction="http://tempuri.org/GetlocationByWaybill" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetCurrentLOcationByWaybill">
+      <soap:operation soapAction="http://tempuri.org/GetCurrentLOcationByWaybill" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetlocationByTripID">
+      <soap:operation soapAction="http://tempuri.org/GetlocationByTripID" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetTripDetails">
+      <soap:operation soapAction="http://tempuri.org/GetTripDetails" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetDeliverySheetDetails">
+      <soap:operation soapAction="http://tempuri.org/GetDeliverySheetDetails" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetDeliverySheetDetailsWithCname">
+      <soap:operation soapAction="http://tempuri.org/GetDeliverySheetDetailsWithCname" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetTotalTripDetails">
+      <soap:operation soapAction="http://tempuri.org/GetTotalTripDetails" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetTotalWashedDetails">
+      <soap:operation soapAction="http://tempuri.org/GetTotalWashedDetails" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetBreakdownDetails">
+      <soap:operation soapAction="http://tempuri.org/GetBreakdownDetails" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="IdlleCumulative">
+      <soap:operation soapAction="http://tempuri.org/IdlleCumulative" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="IdlleCumulativeByGroup">
+      <soap:operation soapAction="http://tempuri.org/IdlleCumulativeByGroup" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AutoIdlleCumulativeByGroup">
+      <soap:operation soapAction="http://tempuri.org/AutoIdlleCumulativeByGroup" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployeeMaster">
+      <soap:operation soapAction="http://tempuri.org/GetEmployeeMaster" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployeePhotoByID">
+      <soap:operation soapAction="http://tempuri.org/GetEmployeePhotoByID" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetDeviceMaster">
+      <soap:operation soapAction="http://tempuri.org/GetDeviceMaster" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CumulativeWorking">
+      <soap:operation soapAction="http://tempuri.org/CumulativeWorking" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendSMS">
+      <soap:operation soapAction="http://tempuri.org/SendSMS" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetCurrentLocatation">
+      <soap:operation soapAction="http://tempuri.org/GetCurrentLocatation" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetFleetDetails">
+      <soap:operation soapAction="http://tempuri.org/GetFleetDetails" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="UpdateGeofenceAlert">
+      <soap:operation soapAction="http://tempuri.org/UpdateGeofenceAlert" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetGeofenceLocationName">
+      <soap:operation soapAction="http://tempuri.org/GetGeofenceLocationName" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetLocationName">
+      <soap:operation soapAction="http://tempuri.org/GetLocationName" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="ReverseGeoLoc">
+      <soap:operation soapAction="http://tempuri.org/ReverseGeoLoc" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="IsPresentInGeofenceCircle">
+      <soap:operation soapAction="http://tempuri.org/IsPresentInGeofenceCircle" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="IsPresentInGeofencePolygon">
+      <soap:operation soapAction="http://tempuri.org/IsPresentInGeofencePolygon" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:binding name="GPSServiceSoap12" type="tns:GPSServiceSoap">
+    <soap12:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="Login">
+      <soap12:operation soapAction="http://tempuri.org/Login" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="Logout">
+      <soap12:operation soapAction="http://tempuri.org/Logout" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetSpeedAlerts">
+      <soap12:operation soapAction="http://tempuri.org/GetSpeedAlerts" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getGeofenceReport">
+      <soap12:operation soapAction="http://tempuri.org/getGeofenceReport" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getVehicleEventStatus">
+      <soap12:operation soapAction="http://tempuri.org/getVehicleEventStatus" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getVehicleSpeedStatus">
+      <soap12:operation soapAction="http://tempuri.org/getVehicleSpeedStatus" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="DashboadStatus">
+      <soap12:operation soapAction="http://tempuri.org/DashboadStatus" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="DashBoradSpeedAlert">
+      <soap12:operation soapAction="http://tempuri.org/DashBoradSpeedAlert" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployees">
+      <soap12:operation soapAction="http://tempuri.org/GetEmployees" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetlocationByWaybill">
+      <soap12:operation soapAction="http://tempuri.org/GetlocationByWaybill" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetCurrentLOcationByWaybill">
+      <soap12:operation soapAction="http://tempuri.org/GetCurrentLOcationByWaybill" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetlocationByTripID">
+      <soap12:operation soapAction="http://tempuri.org/GetlocationByTripID" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetTripDetails">
+      <soap12:operation soapAction="http://tempuri.org/GetTripDetails" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetDeliverySheetDetails">
+      <soap12:operation soapAction="http://tempuri.org/GetDeliverySheetDetails" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetDeliverySheetDetailsWithCname">
+      <soap12:operation soapAction="http://tempuri.org/GetDeliverySheetDetailsWithCname" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetTotalTripDetails">
+      <soap12:operation soapAction="http://tempuri.org/GetTotalTripDetails" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetTotalWashedDetails">
+      <soap12:operation soapAction="http://tempuri.org/GetTotalWashedDetails" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetBreakdownDetails">
+      <soap12:operation soapAction="http://tempuri.org/GetBreakdownDetails" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="IdlleCumulative">
+      <soap12:operation soapAction="http://tempuri.org/IdlleCumulative" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="IdlleCumulativeByGroup">
+      <soap12:operation soapAction="http://tempuri.org/IdlleCumulativeByGroup" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AutoIdlleCumulativeByGroup">
+      <soap12:operation soapAction="http://tempuri.org/AutoIdlleCumulativeByGroup" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployeeMaster">
+      <soap12:operation soapAction="http://tempuri.org/GetEmployeeMaster" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetEmployeePhotoByID">
+      <soap12:operation soapAction="http://tempuri.org/GetEmployeePhotoByID" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetDeviceMaster">
+      <soap12:operation soapAction="http://tempuri.org/GetDeviceMaster" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="CumulativeWorking">
+      <soap12:operation soapAction="http://tempuri.org/CumulativeWorking" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="SendSMS">
+      <soap12:operation soapAction="http://tempuri.org/SendSMS" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetCurrentLocatation">
+      <soap12:operation soapAction="http://tempuri.org/GetCurrentLocatation" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetFleetDetails">
+      <soap12:operation soapAction="http://tempuri.org/GetFleetDetails" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="UpdateGeofenceAlert">
+      <soap12:operation soapAction="http://tempuri.org/UpdateGeofenceAlert" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetGeofenceLocationName">
+      <soap12:operation soapAction="http://tempuri.org/GetGeofenceLocationName" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetLocationName">
+      <soap12:operation soapAction="http://tempuri.org/GetLocationName" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="ReverseGeoLoc">
+      <soap12:operation soapAction="http://tempuri.org/ReverseGeoLoc" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="IsPresentInGeofenceCircle">
+      <soap12:operation soapAction="http://tempuri.org/IsPresentInGeofenceCircle" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="IsPresentInGeofencePolygon">
+      <soap12:operation soapAction="http://tempuri.org/IsPresentInGeofencePolygon" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="GPSService">
+    <wsdl:port name="GPSServiceSoap" binding="tns:GPSServiceSoap">
+      <soap:address location="http://livetrack.naqelexpress.com/livetracking/Gpsservice.asmx" />
+    </wsdl:port>
+    <wsdl:port name="GPSServiceSoap12" binding="tns:GPSServiceSoap12">
+      <soap12:address location="http://livetrack.naqelexpress.com/livetracking/Gpsservice.asmx" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

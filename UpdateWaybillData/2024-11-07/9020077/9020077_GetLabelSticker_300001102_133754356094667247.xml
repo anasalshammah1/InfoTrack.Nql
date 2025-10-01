@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<LabelStickerRequest xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <ClientInfo>
+    <ClientAddress>
+      <PhoneNumber>?</PhoneNumber>
+      <POBox>?</POBox>
+      <ZipCode>?</ZipCode>
+      <Fax>?</Fax>
+      <Latitude>?</Latitude>
+      <Longitude>?</Longitude>
+      <FirstAddress>?</FirstAddress>
+      <Location>?</Location>
+      <CountryCode>?</CountryCode>
+      <CityCode>?</CityCode>
+    </ClientAddress>
+    <ClientContact>
+      <Name>?</Name>
+      <Email>?</Email>
+      <PhoneNumber>?</PhoneNumber>
+      <MobileNo>?</MobileNo>
+    </ClientContact>
+    <ClientID>9020077</ClientID>
+    <Password>API@Test</Password>
+    <Version>9.0</Version>
+  </ClientInfo>
+  <WaybillNo>300001102</WaybillNo>
+  <StickerSize>FourMSixthInches</StickerSize>
+</LabelStickerRequest>
