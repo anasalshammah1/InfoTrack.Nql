@@ -21,14 +21,18 @@ namespace InfoTrack.NaqelAPI.GeneralClass.Others
         public string ConsigneePassportNo = "";
         public string ConsigneePassportExp = "";
         public string ConsigneeNationality = "";
-
+        public string ConsigneeNationalIdExpiry = "";
+        public string ConsigneeBirthDate = "";
         public string ConsigneeName = "";
         public string Email = "";
         public string Mobile = "";
         public string PhoneNumber = "";
         public string Fax = "";
         public string District = "";
-
+        public string What3Words = "";
+        public string SPLOfficeID = "";
+        public string consignee_serial = "";
+        public string BuildingNo = "";
 
         private string address = "";
         public string Address
@@ -108,5 +112,6 @@ namespace InfoTrack.NaqelAPI.GeneralClass.Others
             }
         }
 
+        public string ParcelLockerMachineID = "";
     }
 }

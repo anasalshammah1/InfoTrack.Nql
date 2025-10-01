@@ -600,13 +600,20 @@ namespace InfoTrack.NaqelAPI
     {
         public int ParcelLockerID { get; set; }
         public string ParcelLockerName { get; set; }
+        public string ParcelLockerNameAr { get; set; }
         public string ParcelLockerAddress { get; set; }
+        public string Street { get; set; }
         public string Location { get; set; }
         public string CityName { get; set; }
+        public string CityNameAr { get; set; }
+        public string RegionName { get; set; }
         public string CityCode { get; set; }
         public string Country { get; set; }
-        public double Longitude { get; set; }
         public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public string ShortAddress { get; set; }
+        public string ZIPcode { get; set; }
+        public string Buildingnumber { get; set; }
 
         // Opening and closing hours for each day of the week
         public string MonOpeningHour { get; set; }
@@ -631,10 +638,17 @@ namespace InfoTrack.NaqelAPI
     {
         public int ParcelLockerID { get; set; }
         public string ParcelLockerName { get; set; }
+        public string ParcelLockerNameAr { get; set; }
         public string ParcelLockerAddress { get; set; }
+        public string Street { get; set; }
         public string Location { get; set; }
         public string CityName { get; set; }
+        public string CityNameAr { get; set; }
         public string CityCode { get; set; }
+        public string RegionName { get; set; }
+        public string ShortAddress { get; set; }
+        public string zipcode { get; set; }
+        public string buildingnumber { get; set; }
         public string Country { get; set; }
         public double Longitude { get; set; }
         public double Latitude { get; set; }
@@ -732,6 +746,25 @@ namespace InfoTrack.NaqelAPI
 
     }
 
+    public class ReceivableResult
+    {
+        public bool HasError = false;
+        public string Message = "";
+        public List<string> InvalidMtn { get; set; } = new List<string>(); // Initialize here
+        public List<string> AlreadyUpdatedMTN { get; set; } = new List<string>(); // Initialize here
+        public ReceivableResult()
+        {
+            InvalidMtn = new List<string>();  // Ensure mtn is always initialized
+            AlreadyUpdatedMTN = new List<string>();
+
+        }
+    }
+
+    public class ReceivableItemResult
+    {
+        public bool HasError = false;
+        public string Message = "";
+    }
 
 
     [XmlRoot(ElementName = "WaybillNo")]
@@ -742,6 +775,51 @@ namespace InfoTrack.NaqelAPI
         public List<int> Int { get; set; }
     }
 
+    [XmlRoot("receivableLst")]
+    public class ReceivableList
+    {
+
+        [XmlElement(ElementName = "ClientInfo")]
+        public ClientInformation ClientInfo { get; set; }
+
+        [XmlElement("receivable")]
+        public List<Receivable> Receivables { get; set; }
+    }
+
+    public class Receivable
+    {
+        public string Location { get; set; }
+        public string Mtn { get; set; }
+        public string Customer { get; set; }
+
+        [XmlElement("recDate")]
+        public DateTime RecDate { get; set; }
+
+        [XmlElement("recCurrency")]
+        public string RecCurrency { get; set; }
+
+        [XmlElement("exchRate")]
+        public decimal ExchRate { get; set; }
+
+        [XmlElement("rodAmount")]
+        public float RodAmount { get; set; }
+    }
+
+    public class ReceivableItem
+    {
+        public string Refno { get; set; }
+    }
+
+    public class ReceivableItemList
+    {
+        [XmlElement(ElementName = "ClientInfo")]
+        public ClientInformation ClientInfo { get; set; }
+        [XmlElement(ElementName = "DispatchNumber")]
+        public string DispatchNumber { get; set; }
+
+        [XmlElement("receivableItems")]
+        public List<ReceivableItem> ReceivableItem { get; set; }
+    }
     public class ScheduleWaybill
     {
 
@@ -771,24 +849,90 @@ namespace InfoTrack.NaqelAPI
         public string Name { get; set; }
         public string FName { get; set; }
         public string CityName { get; set; }
+        public string CityNameAr { get; set; }
         public string RegionName { get; set; }
         public string Lat { get; set; }
         public string Long { get; set; }
-
-
-        public string StartWorkingHour { get; set; }
-
-
-        public string EndWorkingHour { get; set; }
-        public string SaturdayStartWorkingHour { get; set; }
-        public string SaturdayEndtWorkingHour { get; set; }
-
+        //public string StartWorkingHour { get; set; }
+        //public string EndWorkingHour { get; set; }
+        //public string SaturdayStartWorkingHour { get; set; }
+        //public string SaturdayEndtWorkingHour { get; set; }
         public string CityCode { get; set; }
+        public string Country { get; set; }
+        public string ZipCode { get; set; }
+        public string District { get; set; }
+        public string DistrictAr { get; set; }
 
+        public string Street { get; set; }
+        public string StreetAr { get; set; }
 
+        public string BuildingNumber { get; set; }
+        public string AdditionalNumber { get; set; }
+
+        public string MonOpeningHour { get; set; }
+        public string MonClosingHour { get; set; }
+        public string TuesOpeningHour { get; set; }
+        public string TuesClosingHour { get; set; }
+        public string WedOpeningHour { get; set; }
+        public string WedClosingHour { get; set; }
+        public string ThurOpeningHour { get; set; }
+        public string ThurClosingHour { get; set; }
+        public string FriOpeningHour { get; set; }
+        public string FriClosingHour { get; set; }
+        public string SatOpeningHour { get; set; }
+        public string SatClosingHour { get; set; }
+        public string SunOpeningHour { get; set; }
+        public string SunClosingHour { get; set; }
+    }
+
+    public class ChargedWeightResult
+    {
+        public bool HasError = false;
+        public string Message { get; set; }
+        public List<ChargedWeightInfo> ChargedWeightList;
+    }
+
+    public class ChargedWeightInfo
+    {
+        public int WaybillNo { get; set; }
+        public double ChargedWeight { get; set; }
+        public bool Invoiced { get; set; }
     }
 
 
+    public class RODInfoResult
+    {
+        public bool HasError = false;
+        public string Message { get; set; }
+        public List<RODinfo> RODInfoList;
+    }
 
+    public class RODinfo
+    {
+        public int WaybillNo { get; set; }
+        public string Refno { get; set; }
+        public int Client { get; set; }
+        public bool RODRecieved { get; set; }
+        public string RODAmount { get; set; }
+    }
+
+    public class DispatchInfoResult
+    {
+        public bool HasError = false;
+        public string Message { get; set; }
+        public List<DispatchInfoList> DispatchInfoList;
+
+    }
+
+    public class DispatchInfoList
+    {
+        public int Waybillno { get; set; }
+        public string BookingRefno { get; set; }
+        public int Client { get; set; }
+        public string DispatchNumber { get; set; }
+        public string Loc { get; set; }
+        public DateTime ManifestedTime { get; set; }
+
+    }
 
 }

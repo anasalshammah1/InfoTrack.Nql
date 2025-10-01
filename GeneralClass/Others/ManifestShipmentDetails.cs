@@ -106,12 +106,16 @@ namespace InfoTrack.NaqelAPI
         {
             string loadtypeB2B = System.Configuration.ConfigurationManager.AppSettings["B2BLoadtypeIDs"].ToString();
             List<int> b2BLoadtypes = loadtypeB2B.Split(',').Select(Int32.Parse).ToList();
+
+            string SplClient = System.Configuration.ConfigurationManager.AppSettings["SplClientID"].ToString();
+            List<int> splList = SplClient.Split(',').Select(Int32.Parse).ToList();
+
             string loadtypeB2BINT = System.Configuration.ConfigurationManager.AppSettings["INTB2BLoadtypeIDs"].ToString();
             List<int> INTloadtypeB2B = loadtypeB2BINT.Split(',').Select(Int32.Parse).ToList();
             Result result = new Result();
             result.HasError = true;
             ServiceTypeID = GlobalVar.GV.GetServiceTypeID(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.LoadTypeID);
-           
+
 
             #region BillingType & COD Validation
             int[] acceptBillingTypeArray = { 1, 3, 5 }; // PrePaid, ExternalBilling, COD
@@ -147,14 +151,62 @@ namespace InfoTrack.NaqelAPI
             #endregion
 
             #region LoadType Validation
-            int[] notAcceptLoadTypeArray = { 66, 136, 204,206 }; // Domestic ASR, International ASR, Drop Off- ASR , Drop off -ASR int'
-            int[] CBUServiceID = { 7,8 }; // Domestic ASR, International ASR, Drop Off- ASR , Drop off -ASR int'
+            int[] notAcceptLoadTypeArray = { 66, 136, 204, 206 }; // Domestic ASR, International ASR, Drop Off- ASR , Drop off -ASR int'
+            int[] CBUServiceID = { 7, 8 }; // Domestic ASR, International ASR, Drop Off- ASR , Drop off -ASR int'
 
             if (_ManifestShipmentDetails.LoadTypeID <= 0 || notAcceptLoadTypeArray.Contains(_ManifestShipmentDetails.LoadTypeID))
             {
                 result.Message = "Please provide a correct LoadTypeID.";
                 return result;
             }
+
+            #region Parcel Locker validation
+            if (_ManifestShipmentDetails.LoadTypeID == 259) // 259  Parcel Locker
+            {
+                if (string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.ParcelLockerMachineID))
+                {
+                    result.Message = "Please provide a correct Parcel Locker Machine ID.";
+                    return result;
+                }
+
+                if (!Regex.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ParcelLockerMachineID.Trim(), @"^[0-9]{1,5}$"))
+                {
+                    result.Message = "Please provide a correct Parcel Locker Machine ID.";
+                    return result;
+                }
+
+                // validate parcel locker machine id
+                if(!GlobalVar.GV.CheckPLMachineID(_ManifestShipmentDetails.ConsigneeInfo.ParcelLockerMachineID))
+                {
+                    result.Message = "Invalid Parcel Locker Machine ID.";
+                    return result;
+                }
+            }
+            #endregion
+
+            #region SPL Office validation
+            if (_ManifestShipmentDetails.LoadTypeID == 285) // 285  SPL Office
+            {
+                if (string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.SPLOfficeID))
+                {
+                    result.Message = "Please provide a correct SPL Office ID.";
+                    return result;
+                }
+
+                if (!Regex.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.SPLOfficeID.Trim(), @"^[0-9]{1,7}$"))
+                {
+                    result.Message = "Please provide a correct SPL Office ID.";
+                    return result;
+                }
+
+                // validate parcel locker machine id
+                if (!GlobalVar.GV.CheckSPLOfficeID(_ManifestShipmentDetails.ConsigneeInfo.SPLOfficeID))
+                {
+                    result.Message = "Invalid SPL Office ID.";
+                    return result;
+                }
+            }
+            #endregion
 
             if (_ManifestShipmentDetails.ClientInfo.ClientID != 1024600 && !GlobalVar.GV.IsLoadTypeCorrect(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.LoadTypeID))
             {
@@ -164,69 +216,49 @@ namespace InfoTrack.NaqelAPI
 
             // Incoterm changes are for international service only --Make a condition for access this part once it's international order.
 
-
-          
-              
             if (_ManifestShipmentDetails.ServiceTypeID == 7 && INTloadtypeB2B.Contains(_ManifestShipmentDetails.LoadTypeID))
             {
                 if (string.IsNullOrWhiteSpace(_ManifestShipmentDetails.Incoterm))
                 {
                     _ManifestShipmentDetails.Incoterm = "DDU";
                     _ManifestShipmentDetails.IsCustomDutyPayByConsignee = true;
-
-
                 }
 
                 if (_ManifestShipmentDetails.Incoterm == "DAP")
                 {
                     _ManifestShipmentDetails.Incoterm = "DDU";
                     _ManifestShipmentDetails.IsCustomDutyPayByConsignee = true;
-
-
                 }
 
                 if (!GlobalVar.GV.IsCorrectIncoterm(_ManifestShipmentDetails.Incoterm))
                 {
                     result.Message = "Please provide Valid Incoterm Value .";
                     return result;
-
                 }
 
-           
+                if (string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.Email))
+                {
+                    result.Message = "Please provide Consignee's Email.";
+                    return result;
+                }
 
-                    if (string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.Email))
-                    {
-                        result.Message = "Please provide Consignee's Email.";
-                        return result;
-                    }
-
-                    if (string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.BuildingNo))
-                    {
-                        result.Message = "Please provide a Consignee's BuildingNo.";
-                        return result;
-                    }
-
+                if (string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.BuildingNo))
+                {
+                    result.Message = "Please provide a Consignee's BuildingNo.";
+                    return result;
+                }
             }
-
-
-
 
 
 
             InfoTrack.BusinessLayer.DContext.MastersDataContext dc = new InfoTrack.BusinessLayer.DContext.MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
 
-            if ((string.IsNullOrWhiteSpace(_ManifestShipmentDetails.Incoterm)||!GlobalVar.GV.IsCorrectIncoterm(_ManifestShipmentDetails.Incoterm))
+            if ((string.IsNullOrWhiteSpace(_ManifestShipmentDetails.Incoterm) || !GlobalVar.GV.IsCorrectIncoterm(_ManifestShipmentDetails.Incoterm))
              && !INTloadtypeB2B.Contains(_ManifestShipmentDetails.LoadTypeID)
-              && (_ManifestShipmentDetails.ServiceTypeID == 7 || _ManifestShipmentDetails.LoadTypeID==56)) // * FRD : If blank & B2C Load Type ID default =DDP
-
-                {
-
+              && (_ManifestShipmentDetails.ServiceTypeID == 7 || _ManifestShipmentDetails.LoadTypeID == 56)) // * FRD : If blank & B2C Load Type ID default =DDP
+            {
                 _ManifestShipmentDetails.Incoterm = "DDP";
                 _ManifestShipmentDetails.IsCustomDutyPayByConsignee = false;
-
-
-
-
             }
 
 
@@ -274,14 +306,15 @@ namespace InfoTrack.NaqelAPI
                 result.Message = "Declare Value should be greater than 0";
                 return result;
             }
-            if (_ManifestShipmentDetails.ClientInfo.ClientID == 9017663 && DeclareValue <=0)
+            if (_ManifestShipmentDetails.ClientInfo.ClientID == 9017663 && DeclareValue <= 0)
             {
                 result.Message = "Please pass DeclaredValue";
                 return result;
             }
             //Solve FreshProduct wrong manifest issue by our end.
 
-            if ((OriginCountryCode == DestinationCountryCode) &&_ManifestShipmentDetails.ClientInfo.ClientID==9021048  ) {
+            if ((OriginCountryCode == DestinationCountryCode) && _ManifestShipmentDetails.ClientInfo.ClientID == 9021048)
+            {
                 _ManifestShipmentDetails.ClientInfo.ClientID = 9022745;
                 _ManifestShipmentDetails.LoadTypeID = 36;
                 //check this
@@ -338,10 +371,10 @@ namespace InfoTrack.NaqelAPI
                 return result;
             }
 
-            if (_ManifestShipmentDetails.ClientInfo.ClientID == 9027665 || _ManifestShipmentDetails.ClientInfo.ClientID == 9026333)
+            if (splList.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
             {
 
-                if (!GlobalVar.GV.isValidPcs(_ManifestShipmentDetails.PicesCount, _ManifestShipmentDetails.Itempieceslist))
+                if (!GlobalVar.GV.isValidPcs(_ManifestShipmentDetails.PicesCount, _ManifestShipmentDetails.Itempieceslist, _ManifestShipmentDetails.LoadTypeID))
                 {
 
                     result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("ErPicesCount");
@@ -358,31 +391,35 @@ namespace InfoTrack.NaqelAPI
                     //splCustomerBarCode instance = new splCustomerBarCode();
                     // Create a list to hold all the instances
                     var instances = new List<splCustomerBarCode>();
-                    var instance = new splCustomerBarCode
+                    if (_ManifestShipmentDetails.LoadTypeID != 116)
                     {
-                        splMasterPieceBarCode = splMaster,
-                        splPieceBarCode = splMaster,
-                        PieceDescription = "",
-                        StatusID = 1,
+                        var instance = new splCustomerBarCode
+                        {
+                            splMasterPieceBarCode = splMaster,
+                            splPieceBarCode = splMaster,
+                            PieceDescription = "",
+                            StatusID = 1,
                         };
 
                         // Add the instance to the list
                         instances.Add(instance);
+                    }
+                   
 
                     foreach (var item in _ManifestShipmentDetails.Itempieceslist)
+                    {
+                         var instance = new splCustomerBarCode
                         {
-                            instance = new splCustomerBarCode
-                            {
-                                splMasterPieceBarCode = splMaster,
-                                splPieceBarCode = item.PieceBarcode,
-                                PieceDescription = item.PieceDescription,
-                                StatusID = 1,
-                            };
+                            splMasterPieceBarCode = splMaster,
+                            splPieceBarCode = item.PieceBarcode,
+                            PieceDescription = item.PieceDescription,
+                            StatusID = 1,
+                        };
 
-                            // Add the instance to the list
-                            instances.Add(instance);
-                        }
-                    
+                        // Add the instance to the list
+                        instances.Add(instance);
+                    }
+
                     dcMaster.splCustomerBarCodes.InsertAllOnSubmit(instances);
                     dcMaster.SubmitChanges();
 
@@ -393,9 +430,9 @@ namespace InfoTrack.NaqelAPI
             }
             // check if valid piece 
 
-        
 
-         
+
+
 
             if (_ManifestShipmentDetails.Weight <= 0)
             {
@@ -418,7 +455,7 @@ namespace InfoTrack.NaqelAPI
                 return result;
             }
 
-            List<int> _internationalServiceTypeID = new List<int>() {6,7};
+            List<int> _internationalServiceTypeID = new List<int>() { 6, 7 };
             if (OriginCountryCode == DestinationCountryCode &&
                 _internationalServiceTypeID.Contains(_ManifestShipmentDetails.ServiceTypeID))
             {

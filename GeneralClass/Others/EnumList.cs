@@ -85,7 +85,10 @@ namespace InfoTrack.NaqelAPI
             CancelWaybill = 9,
             CancelRTO = 10,
             UpdateReweight = 11,
-            SchedulWaybill = 12
+            SchedulWaybill = 12,
+            UpdateWaybillForASR =13,
+            UpdateCODCharge = 14
+
         }
 
         public enum FileType : int

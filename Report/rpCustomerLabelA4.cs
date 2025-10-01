@@ -2,6 +2,7 @@
 using System.Drawing;
 using InfoTrack.NaqelAPI.BusinessObjects;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace InfoTrack.NaqelAPI.Report
 {
@@ -90,6 +91,14 @@ namespace InfoTrack.NaqelAPI.Report
             var PODType = Convert.ToString(GetCurrentColumnValue("PODType"));
             if (PODTypeID >= 0)
                 lbPODType.Text = PODType;
+
+            string clientRedington = System.Configuration.ConfigurationManager.AppSettings["RedingtonClientIDs"].ToString();
+            var clientID = Convert.ToString(GetCurrentColumnValue("ClientID"));
+            var deliveryInstruction = Convert.ToString(GetCurrentColumnValue("DeliveryInstruction"));
+            if (clientRedington.Split(',').Contains(clientID))
+            {
+                lb_totalValue.Text = "Total Value : " + deliveryInstruction;
+            }
         }
     }
 }

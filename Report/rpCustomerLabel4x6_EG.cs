@@ -1,13 +1,22 @@
-using System;
+﻿using System;
 using System.Drawing;
 
 namespace InfoTrack.NaqelAPI.Report
 {
-    public partial class Asr_rpCustomerLabel4x6 : DevExpress.XtraReports.UI.XtraReport
+    public partial class rpCustomerLabel4x6_EG : DevExpress.XtraReports.UI.XtraReport
     {
-        public Asr_rpCustomerLabel4x6()
+        public rpCustomerLabel4x6_EG()
         {
             InitializeComponent();
+        }
+
+        private void exp_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
+        {
+            var productTypeCode = Convert.ToString(GetCurrentColumnValue("ProductCode"));
+            if (productTypeCode == "EXP")
+                exp.Text = "EXP";
+            else
+                exp.Text = "";
         }
 
         private void imgCustomSymbol_BeforePrint(object sender, System.Drawing.Printing.PrintEventArgs e)
@@ -21,5 +30,6 @@ namespace InfoTrack.NaqelAPI.Report
             else
                 imgCustomSymbol.FillColor = Color.Transparent;
         }
+
     }
 }

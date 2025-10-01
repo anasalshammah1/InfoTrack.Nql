@@ -15,6 +15,9 @@ using System.Text;
 using System.Net;
 using System.Data;
 using static InfoTrack.NaqelAPI.ManifestShipmentDetails;
+using System.Configuration;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.ToolTip;
+using System.Drawing;
 
 namespace InfoTrack.NaqelAPI
 {
@@ -248,14 +251,24 @@ namespace InfoTrack.NaqelAPI
             return DapperString;
         }
 
+        //private string defaultconnection = "Data Source=10.1.8.87; Initial Catalog=Demo2;User ID=sa_InfoTrack;Password=sa_InfoTrack_(*&Naq;Connect Timeout=80;Application Name=InfoTrack.NaqelAPI;";
+
+        //private string defaultconnection = "Data Source=AXAPPBKP\\MSSQLSERVER_AXBK;  Initial Catalog=ERPNaqel;User ID=sa_whms;Password=Sabitri@8019;Connect Timeout=80;Application Name=InfoTrack.NaqelAPI;";
+        //private string defaultconnection = "Data Source=212.93.160.149;  Initial Catalog=Demo2;User ID=sa_InfoTrack;Password=sa_InfoTrack_(*&Naq;Connect Timeout=80;Application Name=InfoTrack.NaqelAPI;";
+        //private string defaultconnection = "";
         private string defaultconnection = System.Configuration.ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+        //private string defaultconnection = "Data Source=10.1.8.86; Failover Partner=10.1.8.87; Initial Catalog=ERPNaqel;User ID=sa_InfoTrack;Password=sa_InfoTrack_(*&Naq;Connect Timeout=80;Application Name=InfoTrack.NaqelAPI;";
         private string DefaultConnection
         {
             get { return GlobalVar.GV.defaultconnection; }
             set { GlobalVar.GV.defaultconnection = value; }
         }
 
-     
+        //private string defaultseconnection = "Data Source=10.1.8.87; Initial Catalog=Demo2;User ID=sa_InfoTrack;Password=sa_InfoTrack_(*&Naq;Connect Timeout=80;Application Name=InfoTrack.NaqelAPI;";
+        //private string defaultseconnection = "Data Source=AXAPPBKP\\MSSQLSERVER_AXBK;  Initial Catalog=ERPNaqel;User ID=sa_whms;Password=Sabitri@8019;Connect Timeout=80;Application Name=InfoTrack.NaqelAPI;";
+        //private string defaultseconnection = "Data Source=212.93.160.149;  Initial Catalog=Demo2;User ID=sa_InfoTrack;Password=sa_InfoTrack_(*&Naq;Connect Timeout=80;Application Name=InfoTrack.NaqelAPI;";
+        //private string defaultseconnection = "Data Source=10.1.8.86; Failover Partner=10.1.8.87; Initial Catalog=ERPNaqel;User ID=sa_InfoTrack;Password=sa_InfoTrack_(*&Naq;Connect Timeout=80;Application Name=InfoTrack.NaqelAPI;";
+        //private string defaultseconnection = "";
         private string defaultseconnection = System.Configuration.ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
         private string DefaultSEConnection
         {
@@ -349,13 +362,12 @@ namespace InfoTrack.NaqelAPI
 
         internal string GetString(string inputValue, int CharsCount)
         {
-            string result = "";
-            //result = "\"" + inputValue.Replace("'", "''") + "\"";
-            result = inputValue;
-            if (result.Length >= CharsCount)
-                result = result.Remove(CharsCount);
+            if (string.IsNullOrEmpty(inputValue) || CharsCount <= 0)
+                return string.Empty;
 
-            return result;
+            return inputValue.Length > CharsCount
+                ? inputValue.Remove(CharsCount)
+                : inputValue;
         }
 
         internal bool IsNumber(string text)
@@ -469,10 +481,10 @@ namespace InfoTrack.NaqelAPI
                 dcMaster.APIRequests.InsertOnSubmit(instance);
                 dcMaster.SubmitChanges();
             }
-            catch (Exception e) { AddErrorMessage(e, ClientInfo); }
+            catch (Exception e) { AddErrorMessage(e, ClientInfo, Ref); }
         }
 
-        internal void AddErrorMessage(Exception e, ClientInformation clientinfo)
+        internal void AddErrorMessage(Exception e, ClientInformation clientinfo, string refno="")
         {
             try
             {
@@ -481,7 +493,7 @@ namespace InfoTrack.NaqelAPI
                 instance.ClientID = clientinfo.ClientID;
                 instance.Date = GlobalVar.GV.GetCurrendDate();
 
-                instance.Message = e.Message;
+                instance.Message = "RefNo: "+refno+' '+e.Message;
                 //if (instance.Message.Length > 500)
                 //    instance.Message = instance.Message.Remove(500);
                 instance.Source = e.Source;
@@ -789,7 +801,7 @@ namespace InfoTrack.NaqelAPI
             {
                 InfoTrack.NaqelAPI.App_Data.InfoTrackSEDataTableAdapters.messTableAdapter mAdapter =
                     new App_Data.InfoTrackSEDataTableAdapters.messTableAdapter();
-                mAdapter.Connection.ConnectionString = GlobalVar.GV.GetInfoTrackSEConnection();
+                mAdapter.Connection.ConnectionString = GlobalVar.GV.GetInfoTrackSEConnection();// "Data Source=192.168.1.25;Initial Catalog=ERPCourierSE;User ID=sa;Password=123";
                 mAdapter.Insert(ErrorText);
             }
             //catch { }
@@ -971,19 +983,39 @@ namespace InfoTrack.NaqelAPI
             return _stationID;
         }
 
-        internal int? GetODAStationByCityandCountryCode(string CityCode)
+        //internal int? GetODAStationByCityandCountryCode(string CityCode)
+        //{
+        //    int _stationID = 0;
+
+        //    dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
+        //    if (dcMaster.ViwODAStationAPIs.Where(P => P.ISOCityCode.ToLower() == CityCode.ToLower()).Any())
+        //        _stationID = dcMaster.ViwODAStationAPIs.First(P => P.ISOCityCode.ToLower() == CityCode.ToLower()).ID;
+
+        //    if (_stationID > 0)
+        //        return _stationID;
+        //    else
+        //        return null;
+        //}
+
+        internal int? GetODAStationByCityandCountryCode(string cityCode)
         {
-            int _stationID = 0;
+            try
+            {
+                using (var dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection()))
+                {
+                    var station = dcMaster.ViwODAStationAPIs
+                        .FirstOrDefault(p => string.Equals(p.ISOCityCode, cityCode, StringComparison.OrdinalIgnoreCase));
 
-            dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
-            if (dcMaster.ViwODAStationAPIs.Where(P => P.ISOCityCode.ToLower() == CityCode.ToLower()).Any())
-                _stationID = dcMaster.ViwODAStationAPIs.First(P => P.ISOCityCode.ToLower() == CityCode.ToLower()).ID;
+                    return station?.ID;
+                }
+            }
+            catch (Exception ex)
+            {
 
-            if (_stationID > 0)
-                return _stationID;
-            else
                 return null;
+            }
         }
+
 
         internal string GetCityCodeByStationID(int StationID)
         {
@@ -1218,8 +1250,8 @@ namespace InfoTrack.NaqelAPI
                 return result;
 
             InfoTrack.BusinessLayer.DContext.MastersDataContext dcc = new InfoTrack.BusinessLayer.DContext.MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
-            if (dcc.Districts.Where(P => P.Name.Trim().ToLower() == district.Trim().ToLower() && P.StationID >= 0 && P.StatusID == 1).Count() > 0)
-                result = dcc.Districts.FirstOrDefault(P => P.Name.Trim().ToLower() == district.Trim().ToLower() && P.StationID >= 0 && P.StatusID == 1).ID;
+            if (dcc.Districts.Where(P => P.DestrictCode.Trim().ToLower() == district.Trim().ToLower() && P.StationID >= 0 && P.StatusID == 1).Count() > 0)
+                result = dcc.Districts.FirstOrDefault(P => P.DestrictCode.Trim().ToLower() == district.Trim().ToLower() && P.StationID >= 0 && P.StatusID == 1).ID;
 
             return result;
         }
@@ -1398,7 +1430,7 @@ namespace InfoTrack.NaqelAPI
         }
 
 
-        public bool isValidPcs( int PcsCount , List<ItemPieces> items)
+        public bool isValidPcs( int PcsCount , List<ItemPieces> items, int LoadtypeId)
         {
             bool Valid = true;
 
@@ -1412,14 +1444,359 @@ namespace InfoTrack.NaqelAPI
                 }
 
             }
-            if (items.Count != ( PcsCount-1 ) )
+            if (LoadtypeId == 116)
+            {
+                if(items.Count != (PcsCount))
+                    {
+                    Valid = false;
+                    return Valid;
+                }
+            }
+            else if (items.Count != ( PcsCount-1 ) )
             {
                 Valid = false;
                 return Valid;
 
             }
+            
 
             return Valid; 
+        }
+
+        public bool UpdatechargeByAWB(ReceivableList receivableList)
+        {
+            bool success = false;
+            string sqlCon = System.Configuration.ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+            int client_id = receivableList.ClientInfo.ClientID;
+            // create a datatable to hold the data for updating
+            DataTable updateData = new DataTable();
+            updateData.Columns.Add("Refno", typeof(string));
+            updateData.Columns.Add("CODcharge", typeof(decimal));
+
+            // Loop through the Receivables and fill the DataTable
+            foreach (var receivable in receivableList.Receivables)
+            {
+                // For each Receivable, add a new row to the DataTable
+                updateData.Rows.Add(receivable.Mtn, receivable.RodAmount);
+            }
+
+            using (SqlConnection conn = new SqlConnection(sqlCon))
+            {
+                conn.Open();
+
+                // Start a SQL transaction for bulk update
+                using (SqlTransaction transaction = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        // Create a SqlCommand to fetch Waybillno based on Refno
+                        foreach (DataRow row in updateData.Rows)
+                        {
+                            string refno = row["Refno"].ToString();
+                            decimal codCharge = Convert.ToDecimal(row["CODcharge"]);
+
+                            // Fetch the Waybillno for the given Refno
+                            string waybillno = null;
+                            string fetchWaybillQuery = "SELECT Waybillno FROM CustomerWayBills WHERE Refno = @Refno and clientid=@ClientID";
+
+                            using (SqlCommand fetchCmd = new SqlCommand(fetchWaybillQuery, conn, transaction))
+                            {
+                                fetchCmd.Parameters.AddWithValue("@Refno", refno);
+                                fetchCmd.Parameters.AddWithValue("@ClientID", client_id);
+                                var result = fetchCmd.ExecuteScalar(); // Get the first result (Waybillno)
+
+                                if (result != null)
+                                {
+                                    waybillno = result.ToString();
+                                }
+                            }
+
+                            if (!string.IsNullOrEmpty(waybillno))
+                            {
+                                // Define the stored procedure name
+                                string storedProcName = "UpdateCODCharge";
+
+                                // Execute the stored procedure using parameters
+                                using (SqlCommand cmd = new SqlCommand(storedProcName, conn, transaction))
+                                {
+                                    cmd.CommandType = CommandType.StoredProcedure;
+
+                                    // Add parameters for the stored procedure
+                                    cmd.Parameters.AddWithValue("@Waybillno", waybillno); // Waybill number
+                                    cmd.Parameters.AddWithValue("@CODcharge", codCharge); // COD charge
+                                    cmd.Parameters.AddWithValue("@Refno", refno); // Reference number
+
+                                    SqlParameter rowsAffectedParam = new SqlParameter("@RowsAffected", SqlDbType.Int)
+                                    {
+                                        Direction = ParameterDirection.Output
+                                    };
+                                    cmd.Parameters.Add(rowsAffectedParam);
+
+                                    // Execute the stored procedure
+                                    cmd.ExecuteNonQuery();
+
+                                    // Get the number of rows affected from the OUTPUT parameter
+                                    int rowsAffected = (int)rowsAffectedParam.Value;
+
+                                    if (rowsAffected > 0)
+                                    {
+                                        success = true;
+                                        // Log the update into the console (this will already be logged in the stored procedure)
+                                        Console.WriteLine($"Updated {rowsAffected} row(s) for Waybillno {waybillno}");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("No rows were updated.");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"No matching Waybillno found for Refno {refno}");
+                            }
+                        }
+
+                        // Commit the transaction once all updates are executed
+                        transaction.Commit();
+                        Console.WriteLine($"Bulk update completed for {updateData.Rows.Count} records.");
+                        
+                    }
+                    catch (Exception ex)
+                    {
+                        // If any error occurs, roll back the transaction
+                        transaction.Rollback();
+                        Console.WriteLine($"Error: {ex.Message}");
+                    }
+                }
+            }
+            return success;
+        }
+
+        public bool IsFedexRefNoExist(string RefNo)
+        {
+            int CntWB = 0;
+            string list1 = System.Configuration.ConfigurationManager.AppSettings["FedexAccount"].ToString();
+            List<int> clientIDList = list1.Split(',').Select(Int32.Parse).ToList();
+
+            try
+            {
+                string con = System.Configuration.ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+
+                // Build the SQL query with placeholders for the IN clause
+                string sql = @"
+                    select count(1) from CustomerWaybills
+                    where RefNo = @RefNo
+                    and ClientID in (" + string.Join(",", clientIDList.Select((_, index) => "@ClientID" + index)) + @")
+                    and StatusID = 1;";
+
+                using (var conn = new SqlConnection(con))
+                {
+                    conn.Open();
+
+                    using (var cmd = new SqlCommand(sql, conn))
+                    {
+                        // Add the RefNo parameter
+                        cmd.Parameters.AddWithValue("@RefNo", RefNo.Trim());
+
+                        // Add the ClientID parameters dynamically
+                        clientIDList.Select((id, index) => new { ParamName = "@ClientID" + index, Value = id })
+                       .ToList()
+                       .ForEach(param => cmd.Parameters.AddWithValue(param.ParamName, param.Value));
+
+
+                        // Execute the query and get the result
+                        CntWB = (int)cmd.ExecuteScalar(); // Executes the query and returns the count
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                CntWB = 0;
+            }
+
+            return CntWB > 0;
+
+        }
+
+        public int GetCustomerWaybillIDByDispatchNumber(int waybillNo)
+        {
+            int customerWaybillID = 0;
+
+            string query = "SELECT ID FROM customerwaybills WHERE WaybillNo = @waybillno";
+            string con = System.Configuration.ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+
+            using (SqlConnection connection = new SqlConnection(con))
+            {
+                SqlCommand cmd = new SqlCommand(query, connection);
+                cmd.Parameters.AddWithValue("@waybillno", waybillNo);
+
+                try
+                {
+                    connection.Open();
+                    var result = cmd.ExecuteScalar();
+                    if (result != null && result != DBNull.Value)
+                    {
+                        customerWaybillID = Convert.ToInt32(result);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Handle the exception (e.g., log it)
+                    Console.WriteLine(ex.Message);
+                }
+                connection.Close();
+            }
+
+            return customerWaybillID;
+        }
+
+        public List<string> GetCustomerBarcodesByWaybillID(int customerWaybillID)
+        {
+            List<string> barcodes = new List<string>();
+
+            string query = "SELECT Barcode FROM CustomerBarCode WHERE CustomerWayBillsID = @customerwaybillID";
+            string con = System.Configuration.ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+            using (SqlConnection connection = new SqlConnection(con))
+            {
+                SqlCommand cmd = new SqlCommand(query, connection);
+                cmd.Parameters.AddWithValue("@customerwaybillID", customerWaybillID);
+
+                try
+                {
+                    connection.Open();
+                    SqlDataReader reader = cmd.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        barcodes.Add(reader["Barcode"].ToString());
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Handle the exception (e.g., log it)
+                    Console.WriteLine(ex.Message);
+                }
+                connection.Close();
+            }
+
+            return barcodes;
+        }
+
+        public bool CheckUpdateChargeAvailable(string refno, float codCharge)
+        {
+            bool checkFlag = false;
+            string closedEvent = "5,7,9";  // Event codes
+            
+            // Combined SQL query
+            string query = @"
+                            SELECT TOP 1 1
+                            FROM Tracking WITH (NOLOCK)
+                            WHERE StatusID = 1
+                            AND Waybillno = (SELECT TOP 1 waybillno FROM customerwaybills WHERE refno = @refno)
+                            AND TrackingTypeID IN (SELECT value FROM STRING_SPLIT(@closedEvent, ','))";
+
+            string con = System.Configuration.ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+
+            using (SqlConnection connection = new SqlConnection(con))
+            {
+                using (SqlCommand command = new SqlCommand(query, connection))
+                {
+                    // Add parameters to prevent SQL injection
+                    command.Parameters.AddWithValue("@refno", refno);
+                    command.Parameters.AddWithValue("@closedEvent", closedEvent);
+
+                    try
+                    {
+                        connection.Open();
+                        object result = command.ExecuteScalar();
+
+                        // If a result is found in the Tracking query
+                        if (result != null && result != DBNull.Value)
+                        {
+                            checkFlag = true;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log the exception
+                        Console.WriteLine(ex.Message);
+                    }
+                }
+            }
+
+            // Now, check if there's a COD entry and codCharge is not zero
+            if (!checkFlag && codCharge != 0)
+            {
+                string codQuery = "SELECT ID FROM CODUpdateLogs WHERE Refno = @refno";
+
+                using (SqlConnection connection = new SqlConnection(con))
+                {
+                    using (SqlCommand cmd = new SqlCommand(codQuery, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@refno", refno);
+                        try
+                        {
+                            connection.Open();
+                            object result = cmd.ExecuteScalar();
+
+                            // If we find an entry in CODUpdateLogs and codCharge is not zero, set checkFlag to true
+                            if (result != null && result != DBNull.Value)
+                            {
+                                checkFlag = true;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log the exception
+                            Console.WriteLine(ex.Message);
+                            checkFlag = false;
+                        }
+                    }
+                }
+            }
+
+            return checkFlag;
+        }
+
+        internal bool CheckSPLOfficeID(string SPLOfficeID)
+        {
+            if (string.IsNullOrWhiteSpace(SPLOfficeID))
+                return false;
+
+            SPLOfficeID = SPLOfficeID.Trim();
+
+            int officeID = 0;
+            int.TryParse(SPLOfficeID, out officeID);
+            if (officeID == 0)
+                return false;
+
+            dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
+            if (dcMaster.viwSploffices.Where(x => x.OfficeCode == officeID).Any())
+                return true;
+            else
+                return false;
+        }
+
+        internal bool CheckPLMachineID(string PLMachineID)
+        {
+            if (string.IsNullOrWhiteSpace(PLMachineID))
+                return false;
+
+            PLMachineID = PLMachineID.Trim();
+
+            int machineID = 0;
+            int.TryParse(PLMachineID, out machineID);
+            if (machineID == 0)
+                return false;
+
+            string con = ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+            using (var db = new SqlConnection(con))
+            {
+                string _sql = @"SELECT ParcelLockerID
+                        FROM ViwAPIParcelLockers where ParcelLockerID = " + machineID.ToString();
+
+                List<ViwAPIParcelLockers> list = db.Query<ViwAPIParcelLockers>(_sql).ToList();
+                return list.Any();
+            }
         }
     }
 }

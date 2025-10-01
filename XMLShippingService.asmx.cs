@@ -26,6 +26,11 @@ using DevExpress.Pdf;
 using RestSharp;
 using Newtonsoft.Json;
 using System.Net.Http;
+using DevExpress.XtraRichEdit.Model;
+using System.Transactions;
+using System.Threading;
+using DevExpress.XtraReports.Serialization;
+using System.Drawing;
 
 namespace InfoTrack.NaqelAPI
 {
@@ -124,7 +129,7 @@ namespace InfoTrack.NaqelAPI
                             ? _BookingShipmentDetail.PickUpReqDateTime.AddDays(1) : _BookingShipmentDetail.PickUpReqDateTime,
                 PicesCount = _BookingShipmentDetail.PicesCount,
                 Weight = Math.Round(_BookingShipmentDetail.Weight, 2),
-                PickUpPoint = _BookingShipmentDetail.PickUpPoint,
+                PickUpPoint = string.IsNullOrEmpty(_BookingShipmentDetail.ClientInfo.ClientAddress.ShipperName) ? _BookingShipmentDetail.PickUpPoint : _BookingShipmentDetail.ClientInfo.ClientAddress.ShipperName,
                 SpecialInstruction = (isCreateBookingNextday ? "[+1] " : "") + _BookingShipmentDetail.SpecialInstruction,
                 OriginStationID = _BookingShipmentDetail.OriginStationID,
                 DestinationStationID = _BookingShipmentDetail.DestinationStationID,
@@ -255,75 +260,908 @@ namespace InfoTrack.NaqelAPI
         [WebMethod(Description = "You can use this function to create a new waybill in the system.")]
         public Result CreateWaybill(ManifestShipmentDetails _ManifestShipmentDetails)
         {
+            //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Start.");
             WritetoXMLUpdateWaybill(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill);
+            //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Raw Data Saved.");
             Result result = new Result();
-
-            dcMaster = new MastersDataContext();
-            var tempLmClient = dcMaster.APILmSetups
-                .Where(p => p.ClientId == _ManifestShipmentDetails.ClientInfo.ClientID
-                    && p.LoadTypeID == _ManifestShipmentDetails.LoadTypeID
-                    && p.StatusID == 1)
-                .FirstOrDefault();
-
-            if (tempLmClient != null)
+            try
             {
-                _ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode = tempLmClient.OrgCityCode;
-                _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = tempLmClient.OrgCountryCode;
+                dcMaster = new MastersDataContext();
+                var tempLmClient = dcMaster.APILmSetups
+                    .Where(p => p.ClientId == _ManifestShipmentDetails.ClientInfo.ClientID
+                        && p.LoadTypeID == _ManifestShipmentDetails.LoadTypeID
+                        && p.StatusID == 1)
+                    .FirstOrDefault();
+
+                if (tempLmClient != null)
+                {
+                    _ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode = tempLmClient.OrgCityCode;
+                    _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = tempLmClient.OrgCountryCode;
+                }
+
+                UpdateCountryCode(_ManifestShipmentDetails, "SA", "KSA");
+                ValidateDDUClient(_ManifestShipmentDetails);
+
+                #region LB & IQ CODCharge decimal validation / Done by Sara Almalki
+                if (!ValidateCODChargeForLebanon(_ManifestShipmentDetails, ref result)) return result;
+                if (!ValidateCODChargeForIraq(_ManifestShipmentDetails, ref result)) return result;
+                if (!ValidateCODChargeForMorocco(_ManifestShipmentDetails, ref result)) return result;
+                if (!ValidateClientIDForCOD(_ManifestShipmentDetails, ref result)) return result;
+
+                // 9022477	Saudi Post Last mile (SPL)      9026333	SPL- Express Plus 
+                // 203	SPL Retail Outlet Delivery
+                if (_ManifestShipmentDetails.ClientInfo.ClientID == 9022477 && _ManifestShipmentDetails.LoadTypeID == 203)
+                {
+                    _ManifestShipmentDetails.ClientInfo.ClientID = 9026333;
+                }
+                #endregion
+
+                #region SPL lastmile account convert
+                var doc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
+
+                if (doc.APIClientAndSubClients
+                    .Where(p => p.cClientID == _ManifestShipmentDetails.ClientInfo.ClientID && p.StatusId == 1 && p.pClientID == 9019722)
+                    .Count() > 0)
+                    _ManifestShipmentDetails.ClientInfo.ClientID = 9019722;
+
+                if (_ManifestShipmentDetails.ClientInfo.ClientID == 9022477 && _ManifestShipmentDetails.LoadTypeID == 116)
+                {
+                    _ManifestShipmentDetails.ClientInfo.ClientID = 9027665;
+                    _ManifestShipmentDetails.CreateBooking = true;
+                }
+                // for SPL testing 
+                //if (_ManifestShipmentDetails.ClientInfo.ClientID == 9020077 && _ManifestShipmentDetails.LoadTypeID == 56)
+                //{
+                //    _ManifestShipmentDetails.CreateBooking = true;
+                //}
+                else if (doc.APIClientAndSubClients.Where(p => p.pClientID == _ManifestShipmentDetails.ClientInfo.ClientID).Count() > 0)
+                {
+                    var subClient = doc.APIClientAndSubClients.FirstOrDefault(p => p.pClientID == _ManifestShipmentDetails.ClientInfo.ClientID
+                    && p.DestCountryId == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CountryCode))
+                    && p.OrgCountryId == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode))
+                    && p.StatusId == 1);
+                    if (subClient != null)
+                    {
+                        _ManifestShipmentDetails.ClientInfo.ClientID = subClient.cClientID;
+                        if (!subClient.isASR && subClient.LoadTypeID != null)
+                        {
+                            _ManifestShipmentDetails.LoadTypeID = Convert.ToInt32(subClient.LoadTypeID);
+                        }
+                    }
+                }
+                #endregion
+
+                #region Data Validation
+                // Check create booking permission
+                bool ClientHasCreateBookingPermit = dcMaster.APIClientAccesses
+                        .Where(P => P.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID && P.StatusID == 1 && P.IsCreateBooking == true)
+                        .Any();
+
+
+                string B2BAccount = System.Configuration.ConfigurationManager.AppSettings["NeedBooking"].ToString();
+                List<int> B2BAccountclientid = B2BAccount.Split(',').Select(Int32.Parse).ToList();
+
+                if (B2BAccountclientid.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
+                {
+                    _ManifestShipmentDetails.CreateBooking = true;
+                }
+
+                if (_ManifestShipmentDetails.CreateBooking == true && !ClientHasCreateBookingPermit)
+                {
+                    result.HasError = true;
+                    result.Message = "Your account has no permission to create booking, please contact Naqel team for further operation.";
+                    return result;
+                }
+
+                // Check loadtype agreement
+                CheckClientLoadType(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.LoadTypeID, ref result);
+                if (result.HasError)
+                    return result;
+
+                //result = CheckCorrectDSCountry(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.LoadTypeID, Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CountryCode)));
+                //if (result.HasError)
+                //{
+                //    return result;
+
+                //}
+
+                var tempClientID = _ManifestShipmentDetails.ClientInfo.ClientID;
+                int tempPharmaClientID = GetPharmaClientID(tempClientID);
+
+                int tempServiceTypeID = GlobalVar.GV.GetServiceTypeID(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.LoadTypeID);
+                //bool IsCourierLoadType = (tempServiceTypeID == 7 || tempServiceTypeID == 8); //false
+                bool IsCourierLoadType = false;
+                string courierLoadTypes = System.Configuration.ConfigurationManager.AppSettings["CourierLoadTypes"].ToString();
+                List<int> _courierLoadTypes = courierLoadTypes.Split(',').Select(Int32.Parse).ToList();
+                IsCourierLoadType = _courierLoadTypes.Contains(_ManifestShipmentDetails.LoadTypeID);
+
+                result = _ManifestShipmentDetails.ClientInfo.CheckClientInfo(_ManifestShipmentDetails.ClientInfo, true, tempPharmaClientID, IsCourierLoadType);
+                if (result.HasError)
+                {
+                    WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
+                    return result;
+                }
+
+                result = _ManifestShipmentDetails.ConsigneeInfo.CheckConsigneeInfo(_ManifestShipmentDetails.ConsigneeInfo, _ManifestShipmentDetails.ClientInfo, IsCourierLoadType);
+                if (result.HasError)
+                {
+                    WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
+                    return result;
+                }
+
+                result = _ManifestShipmentDetails.IsWaybillDetailsValid(_ManifestShipmentDetails, tempPharmaClientID, IsCourierLoadType);
+                if (result.HasError)
+                {
+                    WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
+                    return result;
+                }
+
+                DocumentDataDataContext dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
+                #region Check NationalID for High Value DV shipments
+                // _ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalIdExpiry = "2023-12-02";
+                Regex regNationalIdExpiry = new Regex(@"^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01]$)");
+                if (!string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalIdExpiry)
+                    && !regNationalIdExpiry.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalIdExpiry))
+                {
+                    result.HasError = true;
+                    result.Message = "Please Enter the date Format as YYYY-MM-DD in ConsigneeNationalIdExpiry feild";
+                    return result;
+                }
+
+                Regex regConsigneeBirthDate = new Regex(@"^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01]$)");
+                if (!string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeBirthDate)
+                    && !regConsigneeBirthDate.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeBirthDate))
+                {
+                    result.HasError = true;
+                    result.Message = "Please Enter the date Format as YYYY-MM-DD in ConsigneeBirthDate feild";
+                    return result;
+                }
+
+                Regex regWhat3Words = new Regex(@"^\/\/\/[a-z]+\.[a-z]+\.[a-z]+$");
+                if (!regWhat3Words.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.What3Words)
+                    && !string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.What3Words))
+                {
+                    result.HasError = true;
+                    result.Message = "Please Enter What3Word Format as ///***.****.**** ";
+                    return result;
+                }
+
+                // International Packages to KSA need to provide consignee info for high DV shipments
+                if (_ManifestShipmentDetails.ConsigneeInfo.CountryCode == "KSA"
+                    && _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode != _ManifestShipmentDetails.ConsigneeInfo.CountryCode)
+                {
+                    var cur = dc.Currencies.FirstOrDefault(p => p.ID == _ManifestShipmentDetails.CurrenyID);
+                    if (cur == null)
+                    {
+                        result.HasError = true;
+                        result.Message = "Invalid Declared Value CurrencyID.";
+                        return result;
+                    }
+                    double HighValueDV = _ManifestShipmentDetails.DeclareValue / cur.ExchangeRate;
+
+                    if (HighValueDV > 266.67)
+                    {
+                        string list3 = System.Configuration.ConfigurationManager.AppSettings["OptionalConsigneeNationalIDList"].ToString();
+                        List<int> ClientValidation = list3.Split(',').Select(Int32.Parse).ToList();
+
+                        // LB consignee no need check NationalID
+                        if (GlobalVar.GV.consigneeID_Validation(_ManifestShipmentDetails.ClientInfo.ClientID))
+                        {
+                            bool IsNationalIDValid = false;
+                            bool IsPassportValid = false;
+
+                            // Valid NationalID / Passport (https://en.wikipedia.org/wiki/Machine-readable_passport)
+                            string tempConsigneeNationalID = _ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalID.ToString();
+                            if (tempConsigneeNationalID.Length == 10)
+                            {
+                                IsNationalIDValid = true;
+                            }
+
+                            // As Gateways team confirmation: For passport we need to accept Letters & Numbers. minimum 6 digits maximum 15 digits.  
+                            Regex regPassport = new Regex(@"^[\dA-Z]{6,15}$");
+                            // Expire date format should be 20**-**-** [yyyy-MM-dd]
+                            Regex regPassportExp = new Regex(@"^(?<year>20\d\d)-(?<month>0[1-9]|1[012])-(?<day>0[1-9]|[12][0-9]|3[01])$");
+                            DateTime foundDate;
+                            if (regPassport.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ConsigneePassportNo)
+                                && Regex.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationality.Trim(), @"^[a-zA-Z\s]{3,100}$"))
+                            {
+                                Match matchResult = regPassportExp.Match(_ManifestShipmentDetails.ConsigneeInfo.ConsigneePassportExp);
+                                if (matchResult.Success)
+                                {
+                                    int year = int.Parse(matchResult.Groups["year"].Value);
+                                    int month = int.Parse(matchResult.Groups["month"].Value);
+                                    int day = int.Parse(matchResult.Groups["day"].Value);
+
+                                    if (year > DateTime.Now.Year
+                                        || (year == DateTime.Now.Year && month > DateTime.Now.Month)
+                                        || (year == DateTime.Now.Year && month == DateTime.Now.Month && day > DateTime.Now.Day))
+                                    {
+                                        try
+                                        {
+                                            foundDate = new DateTime(year, month, day);
+                                            IsPassportValid = true;
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            LogException(ex);
+                                            // Invalid date
+                                            // Console.WriteLine("Invalid date");
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (!IsNationalIDValid && !IsPassportValid)
+                            {
+                                result.HasError = true;
+                                //result.Message = "Error happend while saving ConsigneeNationalID, Please insert a valid ID";
+                                result.Message = "Invalid Consignee NationalID or Passport information.";
+                                return result;
+                            }
+                        }
+
+                    }
+                }
+
+                // Check DV Limit
+                if (_ManifestShipmentDetails.ConsigneeInfo.CountryCode == "KSA"
+                    && _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode != _ManifestShipmentDetails.ConsigneeInfo.CountryCode)
+                {
+                    Result res = new Result();
+
+                    //normal shipments min DV is 5 USD(18 SAR), document shipments min DV is 0.5 SAR.
+
+                    string list1 = System.Configuration.ConfigurationManager.AppSettings["DeclareValueNoMinLimitValidation"].ToString();
+                    List<int> _clientid1 = list1.Split(',').Select(Int32.Parse).ToList();
+                    // Only KSA shipments require check min DV limit
+                    if (!_clientid1.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
+                    {
+                        double tempDVLimit = GetDVLimit(_ManifestShipmentDetails.CurrenyID, _ManifestShipmentDetails.LoadTypeID);
+                        if (tempDVLimit == 0)
+                        {
+                            res.HasError = true;
+                            res.Message = "Invaild Declare Value Curreny ID";
+                            return res;
+                        }
+
+                        if (_ManifestShipmentDetails.DeclareValue < tempDVLimit)
+                        {
+                            if (_ManifestShipmentDetails.DeclareValue >= 1 && _ManifestShipmentDetails.ClientInfo.ClientID == 9019912)
+                            {
+                                // Shein min DV = 1 USD
+                            }
+                            else if (_ManifestShipmentDetails.DeclareValue >= 2 && _ManifestShipmentDetails.LoadTypeID == 65)
+                            {
+                                //IRC min DV = 2 USD 
+                            }
+                            else
+                            {
+                                WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, "Create New Waybill", EnumList.MethodType.CreateWaybill, result);
+                                res.HasError = true;
+                                res.Message = "Please Check The Value Of Declare Value it's Too Low .";
+                                return res;
+                            }
+                        }
+                    }
+                }
+                #endregion
+
+                #region Check commercial invoice
+                if (_ManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
+                {
+                    Result res = new Result();
+                    //_ManifestShipmentDetails._CommercialInvoice.InvoiceNo = Convert.ToString(NewWaybill.WayBillNo);
+                    res = IsCommericalInvoiceValidBeforeWaybill(_ManifestShipmentDetails._CommercialInvoice, _ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.ConsigneeInfo.CountryCode, _ManifestShipmentDetails.DeclareValue, _ManifestShipmentDetails.CurrenyID);
+
+                    if (res.HasError)
+                    {
+                        WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, res);
+                        res.HasError = true;
+                        res.Message = "an error happened when saving the Commerical Invoice, please make sure to pass valid values:\n " + res.Message;
+                        return res;
+                    }
+
+                    string Hs_valid = System.Configuration.ConfigurationManager.AppSettings["HSCode_Validation"].ToString();
+                    List<int> Hs_validList = Hs_valid.Split(',').Select(Int32.Parse).ToList();
+
+                    foreach (var _commercialInvoice in _ManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList)
+                    {
+                        if (Hs_validList.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
+                        {
+                            _commercialInvoice.CustomsCommodityCode = GlobalVar.GV.BirkenHSCode(_commercialInvoice.CustomsCommodityCode);
+                        }
+                    }
+                }
+                #endregion
+
+                _ManifestShipmentDetails.ConsigneeInfo.CheckConsigneeData(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.ConsigneeInfo, IsCourierLoadType);
+                if (_ManifestShipmentDetails.ConsigneeInfo.ConsigneeDetailID == 0 || _ManifestShipmentDetails.ConsigneeInfo.ConsigneeID == 0)
+                {
+                    result.HasError = true;
+                    result.Message = "Error happend while saving Consignee Info, please insert valid data.. ";
+                    return result;
+                }
+
+                // Incoterm VS IsCustomsDutyPayByConsignee : commented as it cause errors to current client 
+
+                //if (_ManifestShipmentDetails.IsCustomDutyPayByConsignee == true && _ManifestShipmentDetails.Incoterm.ToLower() == "ddp")
+                //{
+                //    result.HasError = true;
+                //    result.Message = "IsCustomsDutyPayByConsignee value should be false for DDP incoterm ";
+                //    return result;
+                //}
+                //if (_ManifestShipmentDetails.IsCustomDutyPayByConsignee == false && _ManifestShipmentDetails.Incoterm.ToLower() == "ddu")
+                //    {
+                //    result.HasError = true;
+                //    result.Message = "IsCustomsDutyPayByConsignee value should be true for DDU incoterm ";
+                //    return result;
+                //}
+                #endregion
+
+                #region Check existing Waybill record
+                string list = System.Configuration.ConfigurationManager.AppSettings["NoCheckRefNoClientIDs"].ToString();
+                List<int> _clientid = list.Split(',').Select(Int32.Parse).ToList();
+
+                if (!string.IsNullOrWhiteSpace(_ManifestShipmentDetails.RefNo) && !_clientid.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
+                {
+                    List<ForwardWaybillInfo> waybillInfos = CheckExistingForwardWaybill(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, _ManifestShipmentDetails.LoadTypeID);
+                    if (waybillInfos.Count() > 0)
+                    {
+                        ForwardWaybillInfo waybillInfo = waybillInfos[0];
+                        result.WaybillNo = waybillInfo.WaybillNo;
+                        result.BookingRefNo = waybillInfo.BookingRefNo;
+                        result.Key = waybillInfo.ID;
+                        result.HasError = false;
+                        result.Message = "Waybill already generated with RefNo: " + _ManifestShipmentDetails.RefNo;
+                        return result;
+                    }
+                }
+                #endregion
+
+                //checkin
+                //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Date Validation Done.");
+                #region Prepare new waybill data
+                _ManifestShipmentDetails.DeliveryInstruction = GlobalVar.GV.GetString(_ManifestShipmentDetails.DeliveryInstruction, 200);
+                CustomerWayBill NewWaybill = new CustomerWayBill();
+                NewWaybill.ClientID = tempPharmaClientID == 0 ? _ManifestShipmentDetails.ClientInfo.ClientID : tempPharmaClientID;
+                NewWaybill.ClientAddressID = _ManifestShipmentDetails.ClientInfo.ClientAddressID;
+                NewWaybill.ClientContactID = _ManifestShipmentDetails.ClientInfo.ClientContactID;
+                NewWaybill.LoadTypeID = _ManifestShipmentDetails.LoadTypeID;
+                NewWaybill.ServiceTypeID = _ManifestShipmentDetails.ServiceTypeID;
+                NewWaybill.BillingTypeID = _ManifestShipmentDetails.BillingType;
+                NewWaybill.IsCOD = _ManifestShipmentDetails.BillingType == 5 || _ManifestShipmentDetails.CODCharge > 0;
+                NewWaybill.ConsigneeID = _ManifestShipmentDetails.ConsigneeInfo.ConsigneeID;
+                NewWaybill.ConsigneeAddressID = _ManifestShipmentDetails.ConsigneeInfo.ConsigneeDetailID;
+                NewWaybill.OriginStationID = GlobalVar.GV.GetStationByCity(GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode, _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode, IsCourierLoadType), IsCourierLoadType);
+                NewWaybill.DestinationStationID = GlobalVar.GV.GetStationByCity(GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode, _ManifestShipmentDetails.ConsigneeInfo.CountryCode, IsCourierLoadType), IsCourierLoadType);
+                NewWaybill.OriginCityCode = GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode, _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode, IsCourierLoadType).ToString();
+                NewWaybill.DestinationCityCode = GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode, _ManifestShipmentDetails.ConsigneeInfo.CountryCode, IsCourierLoadType).ToString();
+                NewWaybill.CODCurrencyID = dc.Currencies.FirstOrDefault(p => p.CountryID == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CountryCode))).ID;
+                NewWaybill.PickUpDate = DateTime.Now;
+                NewWaybill.PicesCount = _ManifestShipmentDetails.PicesCount;
+                NewWaybill.PromisedDeliveryDateFrom = _ManifestShipmentDetails.PromisedDeliveryDateFrom;
+                NewWaybill.PromisedDeliveryDateTo = _ManifestShipmentDetails.PromisedDeliveryDateTo;
+
+                //if (GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode).HasValue)
+                //    NewWaybill.ODADestinationID = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode).Value;
+                var odaStationId = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode);
+
+                if (odaStationId.HasValue)
+                    NewWaybill.ODADestinationID = odaStationId.Value;
+
+                //NewWaybill.ODAOriginID = GlobalVar.GV.GetStationByCity(GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode, _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode));
+                if (NewWaybill.ODADestinationID == 1237 && NewWaybill.ServiceTypeID == 4 && (NewWaybill.DestinationCityCode == "26"))//
+                {
+                    NewWaybill.ODADestinationID = null;
+                }
+                NewWaybill.InsuredValue = _ManifestShipmentDetails.InsuredValue;
+                NewWaybill.DeclaredValue = Math.Round(_ManifestShipmentDetails.DeclareValue, 2);
+                if (_ManifestShipmentDetails.ServiceTypeID == 4 && NewWaybill.DeclaredValue == 0)
+                {
+                    NewWaybill.DeclaredValue = _ManifestShipmentDetails.InsuredValue;
+                }
+                NewWaybill.IsInsurance = _ManifestShipmentDetails.InsuredValue > 0;
+                NewWaybill.Weight = _ManifestShipmentDetails.Weight < 0.1 ? 0.1 : Math.Round(_ManifestShipmentDetails.Weight, 2);
+                NewWaybill.Width = _ManifestShipmentDetails.Width;
+                NewWaybill.Length = _ManifestShipmentDetails.Length;
+                NewWaybill.Height = _ManifestShipmentDetails.Height;
+                NewWaybill.VolumeWeight = Math.Round(_ManifestShipmentDetails.VolumetricWeight, 2);
+                NewWaybill.BookingRefNo = "";
+                NewWaybill.ManifestedTime = DateTime.Now;
+                NewWaybill.GoodDesc = _ManifestShipmentDetails.GoodDesc;
+                NewWaybill.Incoterm = _ManifestShipmentDetails.Incoterm;
+                NewWaybill.IncotermID = GlobalVar.GV.GetIncotermID(_ManifestShipmentDetails.Incoterm);
+
+                // NewWaybill.IsCustomDutyPayByConsignee = NewWaybill.IncotermID == 1 || _ManifestShipmentDetails.IsCustomDutyPayByConsignee;
+                if (NewWaybill.IncotermID == 1)
+                {
+                    NewWaybill.IsCustomDutyPayByConsignee = true;
+                }
+                else
+                {
+                    NewWaybill.IsCustomDutyPayByConsignee = false;
+                }
+
+                NewWaybill.IncotermsPlaceAndNotes = _ManifestShipmentDetails.IncotermsPlaceAndNotes;
+
+                NewWaybill.Latitude = _ManifestShipmentDetails.Latitude;
+                NewWaybill.Longitude = _ManifestShipmentDetails.Longitude;
+                NewWaybill.RefNo = GlobalVar.GV.GetString(_ManifestShipmentDetails.RefNo, 100);
+                NewWaybill.IsPrintBarcode = false;
+                NewWaybill.StatusID = 1;
+                NewWaybill.PODDetail = "";
+                NewWaybill.DeliveryInstruction = _ManifestShipmentDetails.DeliveryInstruction;
+                NewWaybill.CODCharge = Math.Round(_ManifestShipmentDetails.CODCharge, 2);
+                NewWaybill.Discount = 0;
+                NewWaybill.NetCharge = 0;
+                NewWaybill.OnAccount = 0;
+                NewWaybill.ServiceCharge = 0;
+                NewWaybill.ODAStationCharge = 0;
+                NewWaybill.OtherCharge = 0;
+                NewWaybill.PaidAmount = 0;
+                NewWaybill.SpecialCharge = 0;
+                NewWaybill.StandardShipment = 0;
+                NewWaybill.StorageCharge = 0;
+                int producttypeID = 0;
+                dcMaster = new MastersDataContext();
+                producttypeID = (int)dcMaster.LoadTypes
+                                     .Where(LT => LT.ID == _ManifestShipmentDetails.LoadTypeID)
+                                     .Select(LT => LT.ProductTypeID)
+                                     .FirstOrDefault();
+                NewWaybill.ProductTypeID = producttypeID;// Convert.ToInt32(EnumList.ProductType.Home_Delivery); 
+                NewWaybill.IsShippingAPI = true;
+                NewWaybill.PODTypeID = null;
+                NewWaybill.PODDetail = "";
+                NewWaybill.IsRTO = _ManifestShipmentDetails.ClientInfo.ClientID == 1024600 && _ManifestShipmentDetails.isRTO;
+                NewWaybill.IsManifested = false;
+                NewWaybill.GoodsVATAmount = _ManifestShipmentDetails.GoodsVATAmount;
+                NewWaybill.Reference1 = _ManifestShipmentDetails.Reference1;
+                NewWaybill.Reference2 = _ManifestShipmentDetails.Reference2;
+                NewWaybill.Reference3 = _ManifestShipmentDetails.Reference3;
+                NewWaybill.ConsigneeNationalID = _ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalID.ToString();
+                NewWaybill.CurrencyID = _ManifestShipmentDetails.CurrenyID;
+                NewWaybill.IntegrationModeID = 1;
+                #endregion
+
+                if (WaybillNo > 0)
+                {
+                    if (!IsValidWBFormat(WaybillNo.ToString()))
+                    {
+                        result.HasError = true;
+                        result.Message = "Invalid given WaybillNo.";
+                        return result;
+                    }
+                    NewWaybill.WayBillNo = WaybillNo;
+                }
+
+                // LB shipments need to use USD for COD orders
+                if (_ManifestShipmentDetails.ConsigneeInfo.CountryCode == "LB")
+                    NewWaybill.CODCurrencyID = 4;
+
+                //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Waybill Data Prepared.");
+
+                #region "Migration to Stored Procedure"
+                //CallSaveCustomerManifest
+                bool needRetryCreateWaybill = true;
+            RETRYCREATEWAYBILL:
+                try
+                {
+                    string spName = "APICreateCustomerWaybill_WithPieceBarCode_NewLength";
+                    var w = new DynamicParameters();
+                    w.Add("@WayBillNo", NewWaybill.WayBillNo);
+                    w.Add("@ClientID", NewWaybill.ClientID);
+                    w.Add("@ClientAddressID", NewWaybill.ClientAddressID);
+                    w.Add("@ClientContactID", NewWaybill.ClientContactID);
+                    w.Add("@ServiceTypeID", NewWaybill.ServiceTypeID);
+                    w.Add("@LoadTypeID", NewWaybill.LoadTypeID);
+                    w.Add("@BillingTypeID", NewWaybill.BillingTypeID);
+                    w.Add("@ConsigneeID", NewWaybill.ConsigneeID);
+                    w.Add("@ConsigneeAddressID", NewWaybill.ConsigneeAddressID);
+                    w.Add("@OriginStationID", NewWaybill.OriginStationID);
+                    w.Add("@DestinationStationID", NewWaybill.DestinationStationID);
+                    w.Add("@PickUpDate", NewWaybill.PickUpDate);
+                    w.Add("@PicesCount", NewWaybill.PicesCount);
+                    w.Add("@Weight", NewWaybill.Weight);
+                    w.Add("@Width", NewWaybill.Width);
+                    w.Add("@Length", NewWaybill.Length);
+                    w.Add("@Height", NewWaybill.Height);
+                    w.Add("@VolumeWeight", NewWaybill.VolumeWeight);
+                    w.Add("@BookingRefNo", NewWaybill.BookingRefNo);
+                    w.Add("@ManifestedTime", NewWaybill.ManifestedTime);
+                    w.Add("@RefNo", NewWaybill.RefNo);
+                    w.Add("@IsPrintBarcode", NewWaybill.IsPrintBarcode);
+                    w.Add("@StatusID", NewWaybill.StatusID);
+                    w.Add("@BookingID", NewWaybill.BookingID);
+                    w.Add("@IsInsurance", NewWaybill.IsInsurance);
+                    w.Add("@DeclaredValue", NewWaybill.DeclaredValue);
+                    w.Add("@InsuredValue", NewWaybill.InsuredValue);
+                    w.Add("@PODTypeID", NewWaybill.PODTypeID);
+                    w.Add("@PODDetail", NewWaybill.PODDetail);
+                    w.Add("@DeliveryInstruction", NewWaybill.DeliveryInstruction);
+                    w.Add("@ServiceCharge", NewWaybill.ServiceCharge);
+                    w.Add("@StandardShipment", NewWaybill.StandardShipment);
+                    w.Add("@SpecialCharge", NewWaybill.SpecialCharge);
+                    w.Add("@ODAStationCharge", NewWaybill.ODAStationCharge);
+                    w.Add("@OtherCharge", NewWaybill.OtherCharge);
+                    w.Add("@Discount", NewWaybill.Discount);
+                    w.Add("@NetCharge", NewWaybill.NetCharge);
+                    w.Add("@PaidAmount", NewWaybill.PaidAmount);
+                    w.Add("@OnAccount", NewWaybill.OnAccount);
+                    w.Add("@StandardTariffID", NewWaybill.StandardTariffID);
+                    w.Add("@IsCOD", NewWaybill.IsCOD);
+                    w.Add("@CODCharge", NewWaybill.CODCharge);
+                    w.Add("@ProductTypeID", NewWaybill.ProductTypeID);
+                    w.Add("@IsShippingAPI", NewWaybill.IsShippingAPI);
+                    w.Add("@Contents", NewWaybill.Contents);
+                    w.Add("@BatchNo", NewWaybill.BatchNo);
+                    w.Add("@ODAOriginID", NewWaybill.ODAOriginID);
+                    w.Add("@ODADestinationID", NewWaybill.ODADestinationID);
+                    w.Add("@CreatedContactID", NewWaybill.CreatedContactID);
+                    w.Add("@IsRTO", NewWaybill.IsRTO);
+                    w.Add("@IsManifested", NewWaybill.IsManifested);
+                    w.Add("@GoodDesc", NewWaybill.GoodDesc);
+                    w.Add("@Incoterm", NewWaybill.Incoterm);
+                    w.Add("@IncotermID", NewWaybill.IncotermID);
+                    w.Add("@IncotermsPlaceAndNotes", NewWaybill.IncotermsPlaceAndNotes);
+                    w.Add("@Latitude", NewWaybill.Latitude);
+                    w.Add("@Longitude", NewWaybill.Longitude);
+                    w.Add("@HSCode", NewWaybill.HSCode);
+                    w.Add("@CustomDutyAmount", NewWaybill.CustomDutyAmount);
+                    w.Add("@GoodsVATAmount", NewWaybill.GoodsVATAmount);
+                    w.Add("@IsCustomDutyPayByConsignee", NewWaybill.IsCustomDutyPayByConsignee);
+                    w.Add("@Reference1", NewWaybill.Reference1);
+                    w.Add("@Reference2", NewWaybill.Reference2);
+                    w.Add("@Reference3", NewWaybill.Reference3);
+                    w.Add("@ConsigneeNationalID", NewWaybill.ConsigneeNationalID);
+                    w.Add("@CurrencyID", NewWaybill.CurrencyID);
+                    w.Add("@CODCurrencyID", NewWaybill.CODCurrencyID);
+                    w.Add("@IsSentSMS", NewWaybill.IsSentSMS);
+                    w.Add("@PromisedDeliveryDateFrom", NewWaybill.PromisedDeliveryDateFrom);
+                    w.Add("@PromisedDeliveryDateTo", NewWaybill.PromisedDeliveryDateTo);
+                    w.Add("@OriginCityCode", NewWaybill.OriginCityCode);
+                    w.Add("@DestinationCityCode", NewWaybill.DestinationCityCode);
+                    w.Add(name: "@RetVal", dbType: DbType.Int32, direction: ParameterDirection.ReturnValue);
+                    w.Add(name: "@CustWaybillID", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    w.Add("@IntegrationModeID", NewWaybill.IntegrationModeID);
+
+                    //w.Add(name: "@WaybillNo", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+                    using (var db = new SqlConnection(sqlCon))
+                    {
+                        //GetWaybillNo on Saving
+                        var returnCode = db.Execute(spName, param: w, commandType: CommandType.StoredProcedure, commandTimeout: 60);
+                        NewWaybill.WayBillNo = w.Get<int>("@RetVal");
+                        //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill SP Executed With Result Of: " + NewWaybill.WayBillNo);
+
+                        if (NewWaybill.WayBillNo == -1)
+                        {
+                            result.HasError = true;
+                            result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("ErWebServiceNullInvoiceNoExists");
+                            return result;
+                        }
+
+                        NewWaybill.ID = w.Get<int>("@CustWaybillID");
+                    }
+                }
+                catch (Exception e)
+                {
+                    //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill SP Excuted Error. Exception: " + e.Message.ToString() + "      " + e.StackTrace.ToString());
+                    //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill SP Excuted Error.");
+                    LogException(e);
+                    if (needRetryCreateWaybill)
+                    {
+                        needRetryCreateWaybill = false;
+                        Thread.Sleep(3000);
+                        GlobalVar.GV.AddErrorMessage(e, _ManifestShipmentDetails.ClientInfo, (_ManifestShipmentDetails.RefNo +"Retry waybill"));
+                        goto RETRYCREATEWAYBILL;
+                    }
+                    result.HasError = true;
+                    result.Message = "an error happen when saving the waybill details code : 120" +e.Message;
+                    WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
+                    result.Message = "an error happen when saving the waybill details code : 120";
+
+                    GlobalVar.GV.AddErrorMessage(e, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo);
+                    //GlobalVar.GV.AddErrorMessage1(dc.Connection.ConnectionString, _ManifestShipmentDetails.ClientInfo);
+                }
+
+                // Modify ClientID if it's Pharma one 
+                if (tempPharmaClientID != 0)
+                {
+                    var tempCustomerWaybills = dc.CustomerWayBills.Where(c => c.WayBillNo == NewWaybill.WayBillNo).First();
+                    tempCustomerWaybills.ClientID = tempClientID;
+                    dc.SubmitChanges();
+                }
+                //Pass it to CommercialInvoice
+                Result _result = new Result();
+
+                //if (_ManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
+                //{
+                //    _ManifestShipmentDetails._CommercialInvoice.InvoiceNo = Convert.ToString(NewWaybill.WayBillNo);
+                //    _result = IsCommericalInvoiceValid(_ManifestShipmentDetails._CommercialInvoice, _ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.ConsigneeInfo.CountryCode, _ManifestShipmentDetails.DeclareValue, _ManifestShipmentDetails.CurrenyID);
+                //    if (_result.HasError)
+                //    {
+                //        WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
+                //        _result.HasError = true;
+                //        _result.Message = "An error happen when saving the Commerical Invoice, please make sure to pass valid values: " + _result.Message;
+                //        return _result;
+                //    }
+                //}
+                #endregion
+
+                if (!result.HasError)
+                {
+                    result.WaybillNo = NewWaybill.WayBillNo;
+                    result.Key = NewWaybill.ID;
+                    result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("NewWaybillSuccess");
+
+                    try
+                    {
+                        string SplClient = System.Configuration.ConfigurationManager.AppSettings["SplClientID"].ToString();
+                        List<int> splList = SplClient.Split(',').Select(Int32.Parse).ToList();
+
+                        if (splList.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
+                        {
+                            var dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
+
+                            // Query using the custom class
+
+                            var splBarcodes = dcMaster.splCustomerBarCodes
+                                                .Where(p => p.splMasterPieceBarCode == NewWaybill.RefNo)
+                                                .Select(p => new BarcodeDetail
+                                                {
+                                                    BarCode = p.splPieceBarCode,
+                                                    Description = p.PieceDescription
+                                                })
+                                                .ToList();
+
+                            var instances = new List<CustomerBarCode>();
+
+                            long baseIdNumber = NewWaybill.WayBillNo;
+
+                            for (int i = 0; i < splBarcodes.Count; i++)
+                            {
+
+                                string incrementedNumber = (i + 1).ToString("D5");
+                                string barcode = baseIdNumber.ToString() + incrementedNumber;
+
+                                var instance = new CustomerBarCode
+                                {
+
+                                    BarCode = Convert.ToInt64(barcode),
+                                    CustomerWayBillsID = NewWaybill.ID,
+                                    CustomerPieceBarCode = splBarcodes[i].BarCode,
+                                    CustomerPieceDescription = splBarcodes[i].Description,
+                                    StatusID = 1
+
+
+                                };
+
+                                // Add the instance to the list
+                                instances.Add(instance);
+                            }
+                            dc.CustomerBarCodes.InsertAllOnSubmit(instances);
+                            dc.SubmitChanges();
+
+
+                        }
+                        //var tempCustomerWaybills = dc.CustomerWayBills.Where(c => c.WayBillNo == NewWaybill.WayBillNo).First();
+                        //if (NewWaybill.ClientID == 9022477)
+                        //{
+                        //    _ManifestShipmentDetails.WaybillNo = NewWaybill.WayBillNo;
+                        //    UpdateCustomerBarCode(_ManifestShipmentDetails);
+                        //}
+                        //if ((dcMaster.APIClientAccesses.Where(P => P.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID && P.StatusID == 1 && P.IsCreateBooking == true).Any()) && _ManifestShipmentDetails.CreateBooking == true)
+                        //if (_ManifestShipmentDetails.ClientInfo.ClientID != 9016808 && _ManifestShipmentDetails.CreateBooking == true)
+                        if (_ManifestShipmentDetails.CreateBooking == true && ClientHasCreateBookingPermit)
+                        {
+                            //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Booking Creatation Start.");
+                            string tempBookingRefNo = GetClientBookingRefNoToday(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.PickUpPoint, DateTime.Now, NewWaybill.OriginStationID);
+                            result.BookingRefNo = tempBookingRefNo;
+
+                            bool NeedKeepWaybillNoForBooking = false;
+                            // FirstCry Express account 9023826 ASR orders need to specify WaybillNo for each booking
+                            List<int> BookingWithWBClients = new List<int>() { 9023826, 9020077 };
+
+                            if (BookingWithWBClients.Contains(_ManifestShipmentDetails.ClientInfo.ClientID) && _ManifestShipmentDetails.DeliveryInstruction.Trim().ToLower() == "asr")
+                                NeedKeepWaybillNoForBooking = true;
+
+                            var ExistingWaybillForBookingWithWBClients = dc.CustomerWayBills
+                                .Where(w => w.StatusID == 1
+                                && w.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID
+                                && w.RefNo == _ManifestShipmentDetails.RefNo
+                                && w.DeliveryInstruction.Trim().ToLower() == "asr")
+                                .FirstOrDefault();
+
+                            if (ExistingWaybillForBookingWithWBClients != null)
+                                result.BookingRefNo = ExistingWaybillForBookingWithWBClients.BookingRefNo;
+
+                            if (tempBookingRefNo == "")
+                            {
+                                BookingShipmentDetails _bookingDetails = new BookingShipmentDetails
+                                {
+                                    ClientInfo = _ManifestShipmentDetails.ClientInfo,
+                                    BillingType = 1, // A // _ManifestShipmentDetails.BillingType;
+                                    PicesCount = _ManifestShipmentDetails.PicesCount,
+                                    Weight = _ManifestShipmentDetails.Weight,
+                                    PickUpPoint = _ManifestShipmentDetails.PickUpPoint.Trim(),
+                                    SpecialInstruction = "",
+                                    OriginStationID = NewWaybill.OriginStationID,
+                                    DestinationStationID = NewWaybill.DestinationStationID,
+                                    OfficeUpTo = DateTime.Now,
+                                    PickUpReqDateTime = DateTime.Now,
+                                    ContactPerson = _ManifestShipmentDetails.ClientInfo.ClientContact.Name,
+                                    ContactNumber = _ManifestShipmentDetails.ClientInfo.ClientContact.PhoneNumber,
+                                    LoadTypeID = _ManifestShipmentDetails.LoadTypeID,
+                                    WaybillNo = 0 // result.WaybillNo;
+                                };
+                                _bookingDetails.ClientInfo.ClientAddressID = _ManifestShipmentDetails.ClientInfo.ClientAddressID; // TODO: remove
+                                _bookingDetails.ClientInfo.ClientContactID = _ManifestShipmentDetails.ClientInfo.ClientContactID; // TODO: remove
+
+                                if (NeedKeepWaybillNoForBooking)
+                                    _bookingDetails.WaybillNo = result.WaybillNo;
+
+                                Result BookingResult = new Result();
+                                try
+                                {
+                                    BookingResult = CreateBooking(_bookingDetails);
+                                }
+                                catch (Exception e)
+                                {
+                                    //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Booking Creatation Exception.");
+                                    LogException(e);
+                                    WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
+                                    BookingResult.HasError = true;
+                                }
+
+                                //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Booking Creatation Result: " + BookingResult.HasError);
+                                if (!BookingResult.HasError)
+                                    result.BookingRefNo = GlobalVar.GV.GetString(BookingResult.BookingRefNo, 20);
+                            }
+
+                            CustomerWayBill _objwaybill = dc.CustomerWayBills.Where(c => c.WayBillNo == NewWaybill.WayBillNo).First();
+                            _objwaybill.BookingRefNo = result.BookingRefNo;
+                            dc.SubmitChanges();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        GlobalVar.GV.AddErrorMessage(ex, _ManifestShipmentDetails.ClientInfo, (_ManifestShipmentDetails.RefNo + "Barcode Insertion"));
+                        LogException(ex);
+                    }
+
+                    if (!_result.HasError && _ManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
+                    {
+                        //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Commercial Invoice Creatation Start.");
+                        try
+                        {
+                            _ManifestShipmentDetails._CommercialInvoice.InvoiceNo = Convert.ToString(NewWaybill.WayBillNo);
+                            ////if(_ManifestShipmentDetails.ClientInfo.ClientID == 9018737 && _ManifestShipmentDetails.ConsigneeInfo.CountryCode =="LB")
+
+                            //// TODO: Sometimes facing password validation exception
+                            //APIClientAccess instance = dcMaster.APIClientAccesses.FirstOrDefault(P =>
+                            //P.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID
+                            //&& P.StatusID == 1 && P.IsRestrictedToCreateWaybill != true);
+
+                            //InfoTrack.Common.Security security = new InfoTrack.Common.Security();
+                            //_ManifestShipmentDetails.ClientInfo.Password = security.Decrypt(instance.ClientPassword.ToArray());
+
+                            //CreateCommercialInvoice(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails._CommercialInvoice);
+
+                            InsertCommercialInvoice(_ManifestShipmentDetails._CommercialInvoice, _ManifestShipmentDetails.ClientInfo.ClientID);
+                        }
+                        catch (Exception ex)
+                        {
+                            //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Commercial Invoice Creatation Exception.");
+                            LogException(ex);
+                            _result.HasError = true;
+                            _result.Message = Convert.ToString(ex);
+                            return _result;
+                        }
+                        //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Commercial Invoice Creatation Finished.");
+                    }
+                }
+
+                //if (WaybillNo <= 0)
+                //    GlobalVar.GV.CreateShippingAPIRequest(_ManifestShipmentDetails.ClientInfo, EnumList.APIRequestType.Create_New_Shipment, result.WaybillNo.ToString(), result.Key);
+                //else
+                //    GlobalVar.GV.CreateShippingAPIRequest(_ManifestShipmentDetails.ClientInfo, EnumList.APIRequestType.UpdateWaybill, WaybillNo.ToString(), result.Key);
+                //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Finish.");
+                if (!String.IsNullOrEmpty(result.BookingRefNo))
+                {
+                    CustomerWayBill objwaybill = dc.CustomerWayBills.Where(c => c.WayBillNo == NewWaybill.WayBillNo).First();
+                    objwaybill.BookingRefNo = result.BookingRefNo;
+                    dc.SubmitChanges();
+                }
+
+                var response = new APIResponse
+                {
+                    WaybillNo = result.WaybillNo,
+                    ClientID = _ManifestShipmentDetails.ClientInfo.ClientID,
+                    Message = result.Message,
+                    Date = DateTime.Now,
+                    RefNo = _ManifestShipmentDetails.RefNo
+                };
+                dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
+                dcMaster.APIResponses.InsertOnSubmit(response);
+                dcMaster.SubmitChanges();
+                return result;
             }
-
-            if (_ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode == "SA")
-                _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = "KSA";
-
-            if (_ManifestShipmentDetails.ConsigneeInfo.CountryCode == "SA")
-                _ManifestShipmentDetails.ConsigneeInfo.CountryCode = "KSA";
-            if (_ManifestShipmentDetails.ClientInfo.ClientID == 9021604)
+            catch (Exception ex)
             {
-                if (_ManifestShipmentDetails.Incoterm.ToLower() != "ddu" && _ManifestShipmentDetails.Incoterm.ToLower() != "ddp")
-                    _ManifestShipmentDetails.Incoterm = "DDU";
-                _ManifestShipmentDetails.IsCustomDutyPayByConsignee = true;
+                GlobalVar.GV.AddErrorMessage(ex, _ManifestShipmentDetails.ClientInfo, (_ManifestShipmentDetails.RefNo + "General"));
+                LogException(ex);
+                result.HasError = true;
+                result.Message = "an error happen when saving the waybill details code : 120";
+                return result;
+
+
             }
+        }
 
+        #region functions for create waybill
+        private void UpdateCountryCode(ManifestShipmentDetails info, string fromCode, string toCode)
+        {
+            if (info.ClientInfo.ClientAddress.CountryCode == fromCode)
+                info.ClientInfo.ClientAddress.CountryCode = toCode;
 
-            string DDUClients = System.Configuration.ConfigurationManager.AppSettings["DDUDefault"].ToString();
-            List<int> DDlist = DDUClients.Split(',').Select(Int32.Parse).ToList();
+            if (info.ConsigneeInfo.CountryCode == fromCode)
+                info.ConsigneeInfo.CountryCode = toCode;
+        }
 
-            // DDU client IW 
-            if (DDlist.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
+        private bool ValidateClientIDForCOD(ManifestShipmentDetails info, ref Result result)
+        {
+            // ClientID support COD only
+            if (info.BillingType == 5)
             {
-                if (_ManifestShipmentDetails.Incoterm.ToLower() != "ddu" && _ManifestShipmentDetails.Incoterm.ToLower() != "ddp")
+                string list0 = System.Configuration.ConfigurationManager.AppSettings["ClientIDWithCODOnly"].ToString();
+                List<int> _clientid0 = list0.Split(',').Select(Int32.Parse).ToList();
 
-                    _ManifestShipmentDetails.Incoterm = "DDU";
-                _ManifestShipmentDetails.IsCustomDutyPayByConsignee = true;
+                if (_clientid0.Contains(info.ClientInfo.ClientID))
+                {
+                    result.HasError = true;
+                    result.Message = "Your account does not support COD type.";
+                    return false;
+                }
             }
+            return true;
+        }
 
-            #region LB & IQ CODCharge decimal validation / Done by Sara Almalki
-            if (_ManifestShipmentDetails.BillingType == 5 && _ManifestShipmentDetails.ConsigneeInfo.CountryCode == "LB")
+        private bool ValidateCODChargeForLebanon(ManifestShipmentDetails info, ref Result result)
+        {
+            if (info.BillingType == 5 && info.ConsigneeInfo.CountryCode == "LB")
             {
-                var CODtemp = _ManifestShipmentDetails.CODCharge;
-                if (CODtemp % 1 != 0) // to get After decimal points value
+                var CODtemp = info.CODCharge;
+                if (CODtemp % 1 != 0) // to get after decimal points value
                 {
                     result.HasError = true;
                     result.Message = "Incorrect value in CODCharge field, for Lebanon CODCharge field accepts whole numbers or .0 only";
-                    return result;
+                    return false;
                 }
             }
+            return true;
+        }
 
-            if (_ManifestShipmentDetails.BillingType == 5 && _ManifestShipmentDetails.ConsigneeInfo.CountryCode == "IQ")
+        private bool ValidateCODChargeForIraq(ManifestShipmentDetails info, ref Result result)
+        {
+            if (info.BillingType == 5 && info.ConsigneeInfo.CountryCode == "IQ")
             {
-                var CODtemp = _ManifestShipmentDetails.CODCharge;
+                var CODtemp = info.CODCharge;
                 List<double> ValidDecimals = new List<double> { 0, 0.25, 0.5, 0.75 };
-                var ModValue = CODtemp % 1; // to get After decimal points value
+                var ModValue = CODtemp % 1;
 
                 if (!ValidDecimals.Contains(ModValue))
                 {
                     result.HasError = true;
                     result.Message = "Incorrect decimal format in CODCharge field, for Iraq CODCharge field accepts .000 , .250 , .500, or .750 only";
-                    return result;
+                    return false;
                 }
             }
+            return true;
+        }
 
-            // MA COD business validation
-            if (_ManifestShipmentDetails.BillingType == 5 && _ManifestShipmentDetails.ConsigneeInfo.CountryCode == "MA")
+        private bool ValidateCODChargeForMorocco(ManifestShipmentDetails info, ref Result result)
+        {
+            if (info.BillingType == 5 && info.ConsigneeInfo.CountryCode == "MA")
             {
                 string CountrywithCOD = System.Configuration.ConfigurationManager.AppSettings["CountrywithCOD"].ToString();
                 List<int> _CountrywithCOD = CountrywithCOD.Split(',').Select(Int32.Parse).ToList();
@@ -332,722 +1170,30 @@ namespace InfoTrack.NaqelAPI
                 if (!is_CountrywithCOD)
                 {
                     result.HasError = true;
-                    result.Message = "COD billing type is not supported in Moroco.";
-                    return result;
+                    result.Message = "COD billing type is not supported in Morocco.";
+                    return false;
                 }
             }
+            return true;
+        }
 
-            // ClientID support COD only
-            // TODO: Modify the Key name
-            if (_ManifestShipmentDetails.BillingType == 5)
+        private void ValidateDDUClient(ManifestShipmentDetails manifestShipmentDetails)
+        {
+            // DDU client validation
+            string dduClientsConfig = System.Configuration.ConfigurationManager.AppSettings["DDUDefault"].ToString();
+            List<int> dduClientIds = dduClientsConfig.Split(',').Select(Int32.Parse).ToList();
+
+            if (dduClientIds.Contains(manifestShipmentDetails.ClientInfo.ClientID))
             {
-                string list0 = System.Configuration.ConfigurationManager.AppSettings["ClientIDWithCODOnly"].ToString();
-                List<int> _clientid0 = list0.Split(',').Select(Int32.Parse).ToList();
-
-                if (_clientid0.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
+                // Ensure Incoterm is either "DDU" or "DDP"
+                if (manifestShipmentDetails.Incoterm.ToLower() != "ddu" && manifestShipmentDetails.Incoterm.ToLower() != "ddp")
                 {
-                    result.HasError = true;
-                    result.Message = "Your account not support COD type.";
-                    return result;
-                }
-            }
-
-            if (_ManifestShipmentDetails.ClientInfo.ClientID == 9022477 && _ManifestShipmentDetails.LoadTypeID == 203)
-            {
-                _ManifestShipmentDetails.ClientInfo.ClientID = 9026333;
-            }
-            #endregion
-
-            #region SPL lastmile account convert
-            var doc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
-
-            if (doc.APIClientAndSubClients.Where(p => p.cClientID == _ManifestShipmentDetails.ClientInfo.ClientID && p.StatusId == 1 && p.pClientID == 9019722).Count() > 0)
-                _ManifestShipmentDetails.ClientInfo.ClientID = 9019722;
-
-            if (doc.APIClientAndSubClients.Where(p => p.pClientID == _ManifestShipmentDetails.ClientInfo.ClientID).Count() > 0)
-            {
-                var subClient = doc.APIClientAndSubClients.FirstOrDefault(p => p.pClientID == _ManifestShipmentDetails.ClientInfo.ClientID
-                && p.DestCountryId == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CountryCode))
-                && p.OrgCountryId == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode))
-                && p.StatusId == 1);
-                if (subClient != null)
-                {
-                    _ManifestShipmentDetails.ClientInfo.ClientID = subClient.cClientID;
-                    _ManifestShipmentDetails.LoadTypeID = Convert.ToInt32(subClient.LoadTypeID);
-                }
-            }
-            #endregion
-
-            #region Data Validation
-            // Check create booking permission
-            bool ClientHasCreateBookingPermit = dcMaster.APIClientAccesses
-                    .Where(P => P.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID && P.StatusID == 1 && P.IsCreateBooking == true)
-                    .Any();
-
-            if (_ManifestShipmentDetails.CreateBooking == true && !ClientHasCreateBookingPermit)
-            {
-                result.HasError = true;
-                result.Message = "Your account has no permission to create booking, please contact Naqel team for further operation.";
-                return result;
-            }
-
-            // Check loadtype agreement
-            result = CheckClientLoadType(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.LoadTypeID);
-            if (result.HasError)
-            {
-                return result;
-            }
-
-            var tempClientID = _ManifestShipmentDetails.ClientInfo.ClientID;
-            int tempPharmaClientID = GetPharmaClientID(tempClientID);
-
-            int tempServiceTypeID = GlobalVar.GV.GetServiceTypeID(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.LoadTypeID);
-            bool IsCourierLoadType = false;
-            string courierLoadTypes = System.Configuration.ConfigurationManager.AppSettings["CourierLoadTypes"].ToString();
-            List<int> _courierLoadTypes = courierLoadTypes.Split(',').Select(Int32.Parse).ToList();
-            IsCourierLoadType = _courierLoadTypes.Contains(_ManifestShipmentDetails.LoadTypeID);
-
-            result = _ManifestShipmentDetails.ClientInfo.CheckClientInfo(_ManifestShipmentDetails.ClientInfo, true, tempPharmaClientID, IsCourierLoadType);
-            if (result.HasError)
-            {
-                WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
-                return result;
-            }
-
-            result = _ManifestShipmentDetails.ConsigneeInfo.CheckConsigneeInfo(_ManifestShipmentDetails.ConsigneeInfo, _ManifestShipmentDetails.ClientInfo, IsCourierLoadType);
-            if (result.HasError)
-            {
-                WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
-                return result;
-            }
-
-            result = _ManifestShipmentDetails.IsWaybillDetailsValid(_ManifestShipmentDetails, tempPharmaClientID, IsCourierLoadType);
-            if (result.HasError)
-            {
-                WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
-                return result;
-            }
-
-            DocumentDataDataContext dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
-            #region Check NationalID for High Value DV shipments
-            Regex regNationalIdExpiry = new Regex(@"^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01]$)");
-            if (!string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalIdExpiry)
-                && !regNationalIdExpiry.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalIdExpiry))
-            {
-                result.HasError = true;
-                result.Message = "Please Enter the date Format as YYYY-MM-DD in ConsigneeNationalIdExpiry feild";
-                return result;
-            }
-
-            Regex regConsigneeBirthDate = new Regex(@"^\d{4}-((0\d)|(1[012]))-(([012]\d)|3[01]$)");
-            if (!string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeBirthDate)
-                && !regConsigneeBirthDate.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeBirthDate))
-            {
-                result.HasError = true;
-                result.Message = "Please Enter the date Format as YYYY-MM-DD in ConsigneeBirthDate feild";
-                return result;
-            }
-
-            Regex regWhat3Words = new Regex(@"^\/\/\/[a-z]+\.[a-z]+\.[a-z]+$");
-            if (!regWhat3Words.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.What3Words)
-                && !string.IsNullOrWhiteSpace(_ManifestShipmentDetails.ConsigneeInfo.What3Words))
-            {
-                result.HasError = true;
-                result.Message = "Please Enter What3Word Format as ///***.****.**** ";
-                return result;
-            }
-
-            // International Packages to KSA need to provide consignee info for high DV shipments
-            if (_ManifestShipmentDetails.ConsigneeInfo.CountryCode == "KSA"
-                && _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode != _ManifestShipmentDetails.ConsigneeInfo.CountryCode)
-            {
-                var cur = dc.Currencies.FirstOrDefault(p => p.ID == _ManifestShipmentDetails.CurrenyID);
-                if (cur == null)
-                {
-                    result.HasError = true;
-                    result.Message = "Invalid Declared Value CurrencyID.";
-                    return result;
-                }
-                double HighValueDV = _ManifestShipmentDetails.DeclareValue / cur.ExchangeRate;
-
-                if (HighValueDV > 266.67)
-                {
-                    string list3 = System.Configuration.ConfigurationManager.AppSettings["OptionalConsigneeNationalIDList"].ToString();
-                    List<int> ClientValidation = list3.Split(',').Select(Int32.Parse).ToList();
-
-                    // LB consignee no need check NationalID
-                    if (GlobalVar.GV.consigneeID_Validation(_ManifestShipmentDetails.ClientInfo.ClientID))
-                    {
-                        bool IsNationalIDValid = false;
-                        bool IsPassportValid = false;
-
-                        // Valid NationalID / Passport (https://en.wikipedia.org/wiki/Machine-readable_passport)
-                        string tempConsigneeNationalID = _ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalID.ToString();
-                        if (tempConsigneeNationalID.Length == 10)
-                        {
-                            IsNationalIDValid = true;
-                        }
-
-                        // As Gateways team confirmation: For passport we need to accept Letters & Numbers. minimum 6 digits maximum 15 digits.  
-                        Regex regPassport = new Regex(@"^[\dA-Z]{6,15}$");
-                        // Expire date format should be 20**-**-** [yyyy-MM-dd]
-                        Regex regPassportExp = new Regex(@"^(?<year>20\d\d)-(?<month>0[1-9]|1[012])-(?<day>0[1-9]|[12][0-9]|3[01])$");
-                        DateTime foundDate;
-                        if (regPassport.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ConsigneePassportNo)
-                            && Regex.IsMatch(_ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationality.Trim(), @"^[a-zA-Z\s]{3,100}$"))
-                        {
-                            Match matchResult = regPassportExp.Match(_ManifestShipmentDetails.ConsigneeInfo.ConsigneePassportExp);
-                            if (matchResult.Success)
-                            {
-                                int year = int.Parse(matchResult.Groups["year"].Value);
-                                int month = int.Parse(matchResult.Groups["month"].Value);
-                                int day = int.Parse(matchResult.Groups["day"].Value);
-
-                                if (year > DateTime.Now.Year
-                                    || (year == DateTime.Now.Year && month > DateTime.Now.Month)
-                                    || (year == DateTime.Now.Year && month == DateTime.Now.Month && day > DateTime.Now.Day))
-                                {
-                                    try
-                                    {
-                                        foundDate = new DateTime(year, month, day);
-                                        IsPassportValid = true;
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        LogException(ex);
-                                        // Invalid date
-                                        // Console.WriteLine("Invalid date");
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!IsNationalIDValid && !IsPassportValid)
-                        {
-                            result.HasError = true;
-                            result.Message = "Invalid Consignee NationalID or Passport information.";
-                            return result;
-                        }
-                    }
-
-                }
-            }
-
-            // Check DV Limit
-            if (_ManifestShipmentDetails.ConsigneeInfo.CountryCode == "KSA"
-                && _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode != _ManifestShipmentDetails.ConsigneeInfo.CountryCode)
-            {
-                Result res = new Result();
-
-                string list1 = System.Configuration.ConfigurationManager.AppSettings["DeclareValueNoMinLimitValidation"].ToString();
-                List<int> _clientid1 = list1.Split(',').Select(Int32.Parse).ToList();
-                // Only KSA shipments require check min DV limit
-                if (!_clientid1.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
-                {
-                    double tempDVLimit = GetDVLimit(_ManifestShipmentDetails.CurrenyID);
-                    if (tempDVLimit == 0)
-                    {
-                        res.HasError = true;
-                        res.Message = "Invaild Declare Value Curreny ID";
-                        return res;
-                    }
-
-                    if (_ManifestShipmentDetails.DeclareValue < tempDVLimit)
-                    {
-                        if (_ManifestShipmentDetails.DeclareValue >= 1 && _ManifestShipmentDetails.ClientInfo.ClientID == 9019912)
-                        {
-                            // Shein min DV = 1 USD
-                        }
-                        else if (_ManifestShipmentDetails.DeclareValue >= 2 && _ManifestShipmentDetails.LoadTypeID == 65)
-                        {
-                            //IRC min DV = 2 USD 
-                        }
-                        else
-                        {
-                            WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, "Create New Waybill", EnumList.MethodType.CreateWaybill, result);
-                            res.HasError = true;
-                            res.Message = "Please Check The Value Of Declare Value it's Too Low .";
-                            return res;
-                        }
-                    }
-                }
-            }
-            #endregion
-
-            #region Check commercial invoice
-            if (_ManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
-            {
-                Result res = new Result();
-                res = IsCommericalInvoiceValidBeforeWaybill(_ManifestShipmentDetails._CommercialInvoice, _ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.ConsigneeInfo.CountryCode, _ManifestShipmentDetails.DeclareValue, _ManifestShipmentDetails.CurrenyID);
-
-                if (res.HasError)
-                {
-                    WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, res);
-                    res.HasError = true;
-                    res.Message = "an error happen when saving the Commerical Invoice, please make sure to pass valid values: " + res.Message;
-                    return res;
+                    manifestShipmentDetails.Incoterm = "DDU";
                 }
 
-                string Hs_valid = System.Configuration.ConfigurationManager.AppSettings["HSCode_Validation"].ToString();
-                List<int> Hs_validList = Hs_valid.Split(',').Select(Int32.Parse).ToList();
-
-                foreach (var _commercialInvoice in _ManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList)
-                {
-                    if (Hs_validList.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
-                    {
-                        _commercialInvoice.CustomsCommodityCode = GlobalVar.GV.BirkenHSCode(_commercialInvoice.CustomsCommodityCode);
-                    }
-                }
+                // Set custom duty payment by consignee
+                manifestShipmentDetails.IsCustomDutyPayByConsignee = true;
             }
-            #endregion
-
-            _ManifestShipmentDetails.ConsigneeInfo.CheckConsigneeData(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.ConsigneeInfo, IsCourierLoadType);
-            if (_ManifestShipmentDetails.ConsigneeInfo.ConsigneeDetailID == 0 || _ManifestShipmentDetails.ConsigneeInfo.ConsigneeID == 0)
-            {
-                result.HasError = true;
-                result.Message = "Error happend while saving Consignee Info, please insert valid data.. ";
-                return result;
-            }
-            #endregion
-
-            #region Check existing Waybill record
-            string list = System.Configuration.ConfigurationManager.AppSettings["NoCheckRefNoClientIDs"].ToString();
-            List<int> _clientid = list.Split(',').Select(Int32.Parse).ToList();
-
-            if (!string.IsNullOrWhiteSpace(_ManifestShipmentDetails.RefNo) && !_clientid.Contains(_ManifestShipmentDetails.ClientInfo.ClientID))
-            {
-                List<ForwardWaybillInfo> waybillInfos = CheckExistingForwardWaybill(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, _ManifestShipmentDetails.LoadTypeID);
-                if (waybillInfos.Count() > 0)
-                {
-                    ForwardWaybillInfo waybillInfo = waybillInfos[0];
-                    result.WaybillNo = waybillInfo.WaybillNo;
-                    result.BookingRefNo = waybillInfo.BookingRefNo;
-                    result.Key = waybillInfo.ID;
-                    result.HasError = false;
-                    result.Message = "Waybill already generated with RefNo: " + _ManifestShipmentDetails.RefNo;
-                    return result;
-                }
-            }
-            #endregion
-
-            //checkin
-            #region Prepare new waybill data
-            _ManifestShipmentDetails.DeliveryInstruction = GlobalVar.GV.GetString(_ManifestShipmentDetails.DeliveryInstruction, 200);
-            CustomerWayBill NewWaybill = new CustomerWayBill();
-            NewWaybill.ClientID = tempPharmaClientID == 0 ? _ManifestShipmentDetails.ClientInfo.ClientID : tempPharmaClientID;
-            NewWaybill.ClientAddressID = _ManifestShipmentDetails.ClientInfo.ClientAddressID;
-            NewWaybill.ClientContactID = _ManifestShipmentDetails.ClientInfo.ClientContactID;
-            NewWaybill.LoadTypeID = _ManifestShipmentDetails.LoadTypeID;
-            NewWaybill.ServiceTypeID = _ManifestShipmentDetails.ServiceTypeID;
-            NewWaybill.BillingTypeID = _ManifestShipmentDetails.BillingType;
-            NewWaybill.IsCOD = _ManifestShipmentDetails.BillingType == 5 || _ManifestShipmentDetails.CODCharge > 0;
-            NewWaybill.ConsigneeID = _ManifestShipmentDetails.ConsigneeInfo.ConsigneeID;
-            NewWaybill.ConsigneeAddressID = _ManifestShipmentDetails.ConsigneeInfo.ConsigneeDetailID;
-            NewWaybill.OriginStationID = GlobalVar.GV.GetStationByCity(GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode, _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode, IsCourierLoadType), IsCourierLoadType);
-            NewWaybill.DestinationStationID = GlobalVar.GV.GetStationByCity(GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode, _ManifestShipmentDetails.ConsigneeInfo.CountryCode, IsCourierLoadType), IsCourierLoadType);
-            NewWaybill.OriginCityCode = GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode, _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode, IsCourierLoadType).ToString();
-            NewWaybill.DestinationCityCode = GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode, _ManifestShipmentDetails.ConsigneeInfo.CountryCode, IsCourierLoadType).ToString();
-            NewWaybill.CODCurrencyID = dc.Currencies.FirstOrDefault(p => p.CountryID == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CountryCode))).ID;
-            NewWaybill.PickUpDate = DateTime.Now;
-            NewWaybill.PicesCount = _ManifestShipmentDetails.PicesCount;
-            NewWaybill.PromisedDeliveryDateFrom = _ManifestShipmentDetails.PromisedDeliveryDateFrom;
-            NewWaybill.PromisedDeliveryDateTo = _ManifestShipmentDetails.PromisedDeliveryDateTo;
-
-            if (GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode).HasValue)
-                NewWaybill.ODADestinationID = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode).Value;
-            //NewWaybill.ODAOriginID = GlobalVar.GV.GetStationByCity(GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode, _ManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode));
-            if (NewWaybill.ODADestinationID == 1237 && NewWaybill.ServiceTypeID == 4 && (NewWaybill.DestinationCityCode == "26"))//
-            {
-                NewWaybill.ODADestinationID = null;
-            }
-            NewWaybill.InsuredValue = _ManifestShipmentDetails.InsuredValue;
-            NewWaybill.DeclaredValue = Math.Round(_ManifestShipmentDetails.DeclareValue, 2);
-            if (_ManifestShipmentDetails.ServiceTypeID == 4 && NewWaybill.DeclaredValue == 0)
-            {
-                NewWaybill.DeclaredValue = _ManifestShipmentDetails.InsuredValue;
-            }
-            NewWaybill.IsInsurance = _ManifestShipmentDetails.InsuredValue > 0;
-            NewWaybill.Weight = _ManifestShipmentDetails.Weight < 0.1 ? 0.1 : Math.Round(_ManifestShipmentDetails.Weight, 2);
-            NewWaybill.Width = _ManifestShipmentDetails.Width;
-            NewWaybill.Length = _ManifestShipmentDetails.Length;
-            NewWaybill.Height = _ManifestShipmentDetails.Height;
-            NewWaybill.VolumeWeight = Math.Round(_ManifestShipmentDetails.VolumetricWeight, 2);
-            NewWaybill.BookingRefNo = "";
-            NewWaybill.ManifestedTime = DateTime.Now;
-            NewWaybill.GoodDesc = _ManifestShipmentDetails.GoodDesc;
-            NewWaybill.Incoterm = _ManifestShipmentDetails.Incoterm;
-            NewWaybill.IncotermID = GlobalVar.GV.GetIncotermID(_ManifestShipmentDetails.Incoterm);
-
-            // NewWaybill.IsCustomDutyPayByConsignee = NewWaybill.IncotermID == 1 || _ManifestShipmentDetails.IsCustomDutyPayByConsignee;
-            if (NewWaybill.IncotermID == 1)
-            {
-                NewWaybill.IsCustomDutyPayByConsignee = true;
-            }
-            else
-            {
-                NewWaybill.IsCustomDutyPayByConsignee = false;
-            }
-
-            NewWaybill.IncotermsPlaceAndNotes = _ManifestShipmentDetails.IncotermsPlaceAndNotes;
-
-            NewWaybill.Latitude = _ManifestShipmentDetails.Latitude;
-            NewWaybill.Longitude = _ManifestShipmentDetails.Longitude;
-            NewWaybill.RefNo = GlobalVar.GV.GetString(_ManifestShipmentDetails.RefNo, 100);
-            NewWaybill.IsPrintBarcode = false;
-            NewWaybill.StatusID = 1;
-            NewWaybill.PODDetail = "";
-            NewWaybill.DeliveryInstruction = _ManifestShipmentDetails.DeliveryInstruction;
-            NewWaybill.CODCharge = Math.Round(_ManifestShipmentDetails.CODCharge, 2);
-            NewWaybill.Discount = 0;
-            NewWaybill.NetCharge = 0;
-            NewWaybill.OnAccount = 0;
-            NewWaybill.ServiceCharge = 0;
-            NewWaybill.ODAStationCharge = 0;
-            NewWaybill.OtherCharge = 0;
-            NewWaybill.PaidAmount = 0;
-            NewWaybill.SpecialCharge = 0;
-            NewWaybill.StandardShipment = 0;
-            NewWaybill.StorageCharge = 0;
-            int producttypeID = 0;
-            producttypeID = (int)dcMaster.LoadTypes
-                                 .Where(LT => LT.ID == _ManifestShipmentDetails.LoadTypeID)
-                                 .Select(LT => LT.ProductTypeID)
-                                 .FirstOrDefault();
-            NewWaybill.ProductTypeID = producttypeID;// Convert.ToInt32(EnumList.ProductType.Home_Delivery); 
-            NewWaybill.IsShippingAPI = true;
-            NewWaybill.PODTypeID = null;
-            NewWaybill.PODDetail = "";
-            NewWaybill.IsRTO = _ManifestShipmentDetails.ClientInfo.ClientID == 1024600 && _ManifestShipmentDetails.isRTO;
-            NewWaybill.IsManifested = false;
-            NewWaybill.GoodsVATAmount = _ManifestShipmentDetails.GoodsVATAmount;
-            NewWaybill.Reference1 = _ManifestShipmentDetails.Reference1;
-            NewWaybill.Reference2 = _ManifestShipmentDetails.Reference2;
-            NewWaybill.Reference3 = _ManifestShipmentDetails.Reference3;
-            NewWaybill.ConsigneeNationalID = _ManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalID.ToString();
-            NewWaybill.CurrencyID = _ManifestShipmentDetails.CurrenyID;
-            NewWaybill.IntegrationModeID = 1;
-            #endregion
-
-            if (WaybillNo > 0)
-            {
-                if (!IsValidWBFormat(WaybillNo.ToString()))
-                {
-                    result.HasError = true;
-                    result.Message = "Invalid given WaybillNo.";
-                    return result;
-                }
-                NewWaybill.WayBillNo = WaybillNo;
-            }
-
-            // LB shipments need to use USD for COD orders
-            if (_ManifestShipmentDetails.ConsigneeInfo.CountryCode == "LB")
-                NewWaybill.CODCurrencyID = 4;
-
-
-            #region "Migration to Stored Procedure"
-            //CallSaveCustomerManifest
-            bool needRetryCreateWaybill = true;
-        RETRYCREATEWAYBILL:
-            try
-            {
-                string spName = "APICreateCustomerWaybill_WithPieceBarCode_NewLength";
-                var w = new DynamicParameters();
-                w.Add("@WayBillNo", NewWaybill.WayBillNo);
-                w.Add("@ClientID", NewWaybill.ClientID);
-                w.Add("@ClientAddressID", NewWaybill.ClientAddressID);
-                w.Add("@ClientContactID", NewWaybill.ClientContactID);
-                w.Add("@ServiceTypeID", NewWaybill.ServiceTypeID);
-                w.Add("@LoadTypeID", NewWaybill.LoadTypeID);
-                w.Add("@BillingTypeID", NewWaybill.BillingTypeID);
-                w.Add("@ConsigneeID", NewWaybill.ConsigneeID);
-                w.Add("@ConsigneeAddressID", NewWaybill.ConsigneeAddressID);
-                w.Add("@OriginStationID", NewWaybill.OriginStationID);
-                w.Add("@DestinationStationID", NewWaybill.DestinationStationID);
-                w.Add("@PickUpDate", NewWaybill.PickUpDate);
-                w.Add("@PicesCount", NewWaybill.PicesCount);
-                w.Add("@Weight", NewWaybill.Weight);
-                w.Add("@Width", NewWaybill.Width);
-                w.Add("@Length", NewWaybill.Length);
-                w.Add("@Height", NewWaybill.Height);
-                w.Add("@VolumeWeight", NewWaybill.VolumeWeight);
-                w.Add("@BookingRefNo", NewWaybill.BookingRefNo);
-                w.Add("@ManifestedTime", NewWaybill.ManifestedTime);
-                w.Add("@RefNo", NewWaybill.RefNo);
-                w.Add("@IsPrintBarcode", NewWaybill.IsPrintBarcode);
-                w.Add("@StatusID", NewWaybill.StatusID);
-                w.Add("@BookingID", NewWaybill.BookingID);
-                w.Add("@IsInsurance", NewWaybill.IsInsurance);
-                w.Add("@DeclaredValue", NewWaybill.DeclaredValue);
-                w.Add("@InsuredValue", NewWaybill.InsuredValue);
-                w.Add("@PODTypeID", NewWaybill.PODTypeID);
-                w.Add("@PODDetail", NewWaybill.PODDetail);
-                w.Add("@DeliveryInstruction", NewWaybill.DeliveryInstruction);
-                w.Add("@ServiceCharge", NewWaybill.ServiceCharge);
-                w.Add("@StandardShipment", NewWaybill.StandardShipment);
-                w.Add("@SpecialCharge", NewWaybill.SpecialCharge);
-                w.Add("@ODAStationCharge", NewWaybill.ODAStationCharge);
-                w.Add("@OtherCharge", NewWaybill.OtherCharge);
-                w.Add("@Discount", NewWaybill.Discount);
-                w.Add("@NetCharge", NewWaybill.NetCharge);
-                w.Add("@PaidAmount", NewWaybill.PaidAmount);
-                w.Add("@OnAccount", NewWaybill.OnAccount);
-                w.Add("@StandardTariffID", NewWaybill.StandardTariffID);
-                w.Add("@IsCOD", NewWaybill.IsCOD);
-                w.Add("@CODCharge", NewWaybill.CODCharge);
-                w.Add("@ProductTypeID", NewWaybill.ProductTypeID);
-                w.Add("@IsShippingAPI", NewWaybill.IsShippingAPI);
-                w.Add("@Contents", NewWaybill.Contents);
-                w.Add("@BatchNo", NewWaybill.BatchNo);
-                w.Add("@ODAOriginID", NewWaybill.ODAOriginID);
-                w.Add("@ODADestinationID", NewWaybill.ODADestinationID);
-                w.Add("@CreatedContactID", NewWaybill.CreatedContactID);
-                w.Add("@IsRTO", NewWaybill.IsRTO);
-                w.Add("@IsManifested", NewWaybill.IsManifested);
-                w.Add("@GoodDesc", NewWaybill.GoodDesc);
-                w.Add("@Incoterm", NewWaybill.Incoterm);
-                w.Add("@IncotermID", NewWaybill.IncotermID);
-                w.Add("@IncotermsPlaceAndNotes", NewWaybill.IncotermsPlaceAndNotes);
-                w.Add("@Latitude", NewWaybill.Latitude);
-                w.Add("@Longitude", NewWaybill.Longitude);
-                w.Add("@HSCode", NewWaybill.HSCode);
-                w.Add("@CustomDutyAmount", NewWaybill.CustomDutyAmount);
-                w.Add("@GoodsVATAmount", NewWaybill.GoodsVATAmount);
-                w.Add("@IsCustomDutyPayByConsignee", NewWaybill.IsCustomDutyPayByConsignee);
-                w.Add("@Reference1", NewWaybill.Reference1);
-                w.Add("@Reference2", NewWaybill.Reference2);
-                w.Add("@Reference3", NewWaybill.Reference3);
-                w.Add("@ConsigneeNationalID", NewWaybill.ConsigneeNationalID);
-                w.Add("@CurrencyID", NewWaybill.CurrencyID);
-                w.Add("@CODCurrencyID", NewWaybill.CODCurrencyID);
-                w.Add("@IsSentSMS", NewWaybill.IsSentSMS);
-                w.Add("@PromisedDeliveryDateFrom", NewWaybill.PromisedDeliveryDateFrom);
-                w.Add("@PromisedDeliveryDateTo", NewWaybill.PromisedDeliveryDateTo);
-                w.Add("@OriginCityCode", NewWaybill.OriginCityCode);
-                w.Add("@DestinationCityCode", NewWaybill.DestinationCityCode);
-                w.Add(name: "@RetVal", dbType: DbType.Int32, direction: ParameterDirection.ReturnValue);
-                w.Add(name: "@CustWaybillID", dbType: DbType.Int32, direction: ParameterDirection.Output);
-                w.Add("@IntegrationModeID", NewWaybill.IntegrationModeID);
-
-                //w.Add(name: "@WaybillNo", dbType: DbType.Int32, direction: ParameterDirection.Output);
-
-                using (var db = new SqlConnection(sqlCon))
-                {
-                    //GetWaybillNo on Saving
-                    var returnCode = db.Execute(spName, param: w, commandType: CommandType.StoredProcedure, commandTimeout: 60);
-                    NewWaybill.WayBillNo = w.Get<int>("@RetVal");
-                    //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill SP Executed With Result Of: " + NewWaybill.WayBillNo);
-
-                    if (NewWaybill.WayBillNo == -1)
-                    {
-                        result.HasError = true;
-                        result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("ErWebServiceNullInvoiceNoExists");
-                        return result;
-                    }
-
-                    NewWaybill.ID = w.Get<int>("@CustWaybillID");
-                }
-            }
-            catch (Exception e)
-            {
-                //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill SP Excuted Error. Exception: " + e.Message.ToString() + "      " + e.StackTrace.ToString());
-                //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill SP Excuted Error.");
-                LogException(e);
-                if (needRetryCreateWaybill)
-                {
-                    needRetryCreateWaybill = false;
-                    goto RETRYCREATEWAYBILL;
-                }
-
-                WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
-                result.HasError = true;
-                result.Message = "an error happen when saving the waybill details code : 120";
-                GlobalVar.GV.AddErrorMessage(e, _ManifestShipmentDetails.ClientInfo);
-                GlobalVar.GV.AddErrorMessage1(dc.Connection.ConnectionString, _ManifestShipmentDetails.ClientInfo);
-            }
-
-            // Modify ClientID if it's Pharma one 
-            if (tempPharmaClientID != 0)
-            {
-                var tempCustomerWaybills = dc.CustomerWayBills.Where(c => c.WayBillNo == NewWaybill.WayBillNo).First();
-                tempCustomerWaybills.ClientID = tempClientID;
-                dc.SubmitChanges();
-            }
-            //Pass it to CommercialInvoice
-            Result _result = new Result();
-            #endregion
-
-            if (!result.HasError)
-            {
-                result.WaybillNo = NewWaybill.WayBillNo;
-                result.Key = NewWaybill.ID;
-                result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("NewWaybillSuccess");
-
-                try
-                {
-                    if (NewWaybill.ClientID == 9027665 || NewWaybill.ClientID == 9026333)
-                    {
-                        var dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
-
-                        // Query using the custom class
-
-                        var splBarcodes = dcMaster.splCustomerBarCodes
-                                            .Where(p => p.splMasterPieceBarCode == NewWaybill.RefNo)
-                                            .Select(p => new BarcodeDetail
-                                            {
-                                                BarCode = p.splPieceBarCode,
-                                                Description = p.PieceDescription
-                                            })
-                                            .ToList();
-
-                        var instances = new List<CustomerBarCode>();
-
-                        long baseIdNumber = NewWaybill.WayBillNo;
-
-                        for (int i = 0; i < splBarcodes.Count; i++)
-                        {
-
-                            string incrementedNumber = (i + 1).ToString("D5");
-                            string barcode = baseIdNumber.ToString() + incrementedNumber;
-
-                            var instance = new CustomerBarCode
-                            {
-
-                                BarCode = Convert.ToInt64(barcode),
-                                CustomerWayBillsID = NewWaybill.ID,
-                                CustomerPieceBarCode = splBarcodes[i].BarCode,
-                                CustomerPieceDescription = splBarcodes[i].Description,
-                                StatusID = 1
-
-
-                            };
-
-                            // Add the instance to the list
-                            instances.Add(instance);
-                        }
-                        dc.CustomerBarCodes.InsertAllOnSubmit(instances);
-                        dc.SubmitChanges();
-
-
-                    }
-                    //var tempCustomerWaybills = dc.CustomerWayBills.Where(c => c.WayBillNo == NewWaybill.WayBillNo).First();
-
-                    //if ((dcMaster.APIClientAccesses.Where(P => P.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID && P.StatusID == 1 && P.IsCreateBooking == true).Any()) && _ManifestShipmentDetails.CreateBooking == true)
-                    //if (_ManifestShipmentDetails.ClientInfo.ClientID != 9016808 && _ManifestShipmentDetails.CreateBooking == true)
-                    if (_ManifestShipmentDetails.CreateBooking == true && ClientHasCreateBookingPermit)
-                    {
-                        //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Booking Creatation Start.");
-                        string tempBookingRefNo = GetClientBookingRefNoToday(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.PickUpPoint, DateTime.Now, NewWaybill.OriginStationID);
-                        result.BookingRefNo = tempBookingRefNo;
-
-                        bool NeedKeepWaybillNoForBooking = false;
-                        // FirstCry Express account 9023826 ASR orders need to specify WaybillNo for each booking
-                        List<int> BookingWithWBClients = new List<int>() { 9023826, 9020077 };
-
-                        if (BookingWithWBClients.Contains(_ManifestShipmentDetails.ClientInfo.ClientID) && _ManifestShipmentDetails.DeliveryInstruction.Trim().ToLower() == "asr")
-                            NeedKeepWaybillNoForBooking = true;
-
-                        var ExistingWaybillForBookingWithWBClients = dc.CustomerWayBills
-                            .Where(w => w.StatusID == 1
-                            && w.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID
-                            && w.RefNo == _ManifestShipmentDetails.RefNo
-                            && w.DeliveryInstruction.Trim().ToLower() == "asr")
-                            .FirstOrDefault();
-
-                        if (ExistingWaybillForBookingWithWBClients != null)
-                            result.BookingRefNo = ExistingWaybillForBookingWithWBClients.BookingRefNo;
-
-                        if (tempBookingRefNo == "")
-                        {
-                            BookingShipmentDetails _bookingDetails = new BookingShipmentDetails
-                            {
-                                ClientInfo = _ManifestShipmentDetails.ClientInfo,
-                                BillingType = 1, // A // _ManifestShipmentDetails.BillingType;
-                                PicesCount = _ManifestShipmentDetails.PicesCount,
-                                Weight = _ManifestShipmentDetails.Weight,
-                                PickUpPoint = _ManifestShipmentDetails.PickUpPoint.Trim(),
-                                SpecialInstruction = "",
-                                OriginStationID = NewWaybill.OriginStationID,
-                                DestinationStationID = NewWaybill.DestinationStationID,
-                                OfficeUpTo = DateTime.Now,
-                                PickUpReqDateTime = DateTime.Now,
-                                ContactPerson = _ManifestShipmentDetails.ClientInfo.ClientContact.Name,
-                                ContactNumber = _ManifestShipmentDetails.ClientInfo.ClientContact.PhoneNumber,
-                                LoadTypeID = _ManifestShipmentDetails.LoadTypeID,
-                                WaybillNo = 0 // result.WaybillNo;
-                            };
-                            _bookingDetails.ClientInfo.ClientAddressID = _ManifestShipmentDetails.ClientInfo.ClientAddressID; // TODO: remove
-                            _bookingDetails.ClientInfo.ClientContactID = _ManifestShipmentDetails.ClientInfo.ClientContactID; // TODO: remove
-
-                            if (NeedKeepWaybillNoForBooking)
-                                _bookingDetails.WaybillNo = result.WaybillNo;
-
-                            Result BookingResult = new Result();
-                            try
-                            {
-                                BookingResult = CreateBooking(_bookingDetails);
-                            }
-                            catch (Exception e)
-                            {
-                                //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Booking Creatation Exception.");
-                                LogException(e);
-                                WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, result);
-                                BookingResult.HasError = true;
-                            }
-
-                            //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Booking Creatation Result: " + BookingResult.HasError);
-                            if (!BookingResult.HasError)
-                                result.BookingRefNo = GlobalVar.GV.GetString(BookingResult.BookingRefNo, 20);
-                        }
-
-                        CustomerWayBill _objwaybill = dc.CustomerWayBills.Where(c => c.WayBillNo == NewWaybill.WayBillNo).First();
-                        _objwaybill.BookingRefNo = result.BookingRefNo;
-                        dc.SubmitChanges();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogException(ex);
-                }
-
-                if (!_result.HasError && _ManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
-                {
-                    //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Commercial Invoice Creatation Start.");
-                    try
-                    {
-                        _ManifestShipmentDetails._CommercialInvoice.InvoiceNo = Convert.ToString(NewWaybill.WayBillNo);
-                        //if(_ManifestShipmentDetails.ClientInfo.ClientID == 9018737 && _ManifestShipmentDetails.ConsigneeInfo.CountryCode =="LB")
-
-                        // TODO: Sometimes facing password validation exception
-                        APIClientAccess instance = dcMaster.APIClientAccesses.FirstOrDefault(P =>
-                        P.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID
-                        && P.StatusID == 1 && P.IsRestrictedToCreateWaybill != true);
-
-                        InfoTrack.Common.Security security = new InfoTrack.Common.Security();
-                        _ManifestShipmentDetails.ClientInfo.Password = security.Decrypt(instance.ClientPassword.ToArray());
-
-                        CreateCommercialInvoice(_ManifestShipmentDetails.ClientInfo, _ManifestShipmentDetails._CommercialInvoice);
-                    }
-                    catch (Exception ex)
-                    {
-                        //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Commercial Invoice Creatation Exception.");
-                        LogException(ex);
-                        _result.HasError = true;
-                        _result.Message = Convert.ToString(ex);
-                        return _result;
-                    }
-                    //SaveToLogFile(_ManifestShipmentDetails.ClientInfo.ClientID, _ManifestShipmentDetails.RefNo, "Create Waybill Request Commercial Invoice Creatation Finished.");
-                }
-            }
-
-            if (WaybillNo <= 0)
-                GlobalVar.GV.CreateShippingAPIRequest(_ManifestShipmentDetails.ClientInfo, EnumList.APIRequestType.Create_New_Shipment, result.WaybillNo.ToString(), result.Key);
-            else
-                GlobalVar.GV.CreateShippingAPIRequest(_ManifestShipmentDetails.ClientInfo, EnumList.APIRequestType.UpdateWaybill, WaybillNo.ToString(), result.Key);
-
-            CustomerWayBill objwaybill = dc.CustomerWayBills.Where(c => c.WayBillNo == NewWaybill.WayBillNo).First();
-            objwaybill.BookingRefNo = result.BookingRefNo;
-            dc.SubmitChanges();
-            return result;
         }
 
         private int GetPharmaClientID(int ClientID)
@@ -1066,6 +1212,7 @@ namespace InfoTrack.NaqelAPI
                 }
             return 0;
         }
+        #endregion
 
         private string GetClientBookingRefNoToday(ClientInformation ClientInfo, string PickUpPoint, DateTime PickUpReqDT, int OriginStationID)
         {
@@ -1114,431 +1261,543 @@ namespace InfoTrack.NaqelAPI
         public AsrResult CreateWaybillForASR(AsrManifestShipmentDetails _AsrManifestShipmentDetails)
         {
             AsrResult result = new AsrResult();
-            WritetoXMLUpdateWaybill(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR);
-
-            if (_AsrManifestShipmentDetails.ClientInfo.ClientID == 9021604 && _AsrManifestShipmentDetails.LoadTypeID == 66)
-            {
-                // InnerWork last mile account to change client country/city code to KSA/DMM
-                _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = "KSA";
-                _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode = "DMM";
-            }
-
-            if (_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode == "SA")
-                _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = "KSA";
-
-            if (_AsrManifestShipmentDetails.ConsigneeInfo.CountryCode == "SA")
-                _AsrManifestShipmentDetails.ConsigneeInfo.CountryCode = "KSA";
-
-            bool IsCourierLoadType = false;
-            string courierLoadTypes = System.Configuration.ConfigurationManager.AppSettings["CourierLoadTypes"].ToString();
-            List<int> _courierLoadTypes = courierLoadTypes.Split(',').Select(Int32.Parse).ToList();
-            IsCourierLoadType = _courierLoadTypes.Contains(_AsrManifestShipmentDetails.LoadTypeID);
-
-            if (_AsrManifestShipmentDetails.BillingType != 1)
-            {
-                result.HasError = true;
-                result.Message = "ASR orders billing type should be prepaid(1).";
-                return result;
-            }
-
-            if (String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode)
-                || String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode)
-                || String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ConsigneeInfo.CityCode)
-                || String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ConsigneeInfo.CountryCode))
-            {
-                result.HasError = true;
-                result.Message = "Invalid CityCode or CountryCode.";
-                return result;
-            }
-
-            // Swap city code and country code as Jay requested
-            string tempClientCityCode = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode;
-            string tempClientCountryCode = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode;
-            _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode = _AsrManifestShipmentDetails.ConsigneeInfo.CityCode;
-            _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = _AsrManifestShipmentDetails.ConsigneeInfo.CountryCode;
-            _AsrManifestShipmentDetails.ConsigneeInfo.CityCode = tempClientCityCode;
-            _AsrManifestShipmentDetails.ConsigneeInfo.CountryCode = tempClientCountryCode;
-
             Result tempResult = new Result();
-            #region Data validation
-            tempResult = _AsrManifestShipmentDetails.ClientInfo.CheckClientInfo(_AsrManifestShipmentDetails.ClientInfo, true);
-            if (tempResult.HasError)
+            WritetoXMLUpdateWaybill(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR);
+            try
             {
-                WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, tempResult);
-                return tempResult.ConvertToAsrResult();
-            }
+                var doc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
 
-            tempResult = _AsrManifestShipmentDetails.ConsigneeInfo.CheckConsigneeInfo(_AsrManifestShipmentDetails.ConsigneeInfo, _AsrManifestShipmentDetails.ClientInfo);
-            if (tempResult.HasError)
-            {
-                WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, tempResult);
-                return tempResult.ConvertToAsrResult();
-            }
+                if (doc.APIClientAndSubClients.Where(p => p.pClientID == _AsrManifestShipmentDetails.ClientInfo.ClientID).Count() > 0)
+                {
+                    var subClient = doc.APIClientAndSubClients.FirstOrDefault(p => p.pClientID == _AsrManifestShipmentDetails.ClientInfo.ClientID
+                    && p.DestCountryId == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_AsrManifestShipmentDetails.ConsigneeInfo.CountryCode))
+                    && p.OrgCountryId == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode))
+                    && p.StatusId == 1);
+                    if (subClient != null)
+                    {
+                        _AsrManifestShipmentDetails.ClientInfo.ClientID = subClient.cClientID;
+                    }
+                }
 
-            _AsrManifestShipmentDetails.PickUpDate = _AsrManifestShipmentDetails.PickUpDate.Date;
-            string eal = System.Configuration.ConfigurationManager.AppSettings["ASREarliestAndLatestPickupHour"].ToString();
-            var ealList = eal.Split(',').Select(x => int.Parse(x.Trim())).ToList();
-            var earliestTime = ealList[0];
-            var latestTime = ealList[1];
-            if (DateTime.Now.Hour >= latestTime && _AsrManifestShipmentDetails.PickUpDate.Date == DateTime.Now.Date)
-            {
-                _AsrManifestShipmentDetails.PickUpDate = _AsrManifestShipmentDetails.PickUpDate.AddDays(1);
-            }
-            if (DateTime.Now.Hour <= earliestTime && _AsrManifestShipmentDetails.PickUpDate.Date == DateTime.Now.Date.AddDays(-1))
-            {
-                _AsrManifestShipmentDetails.PickUpDate = _AsrManifestShipmentDetails.PickUpDate.AddDays(1);
-            }
+                if (_AsrManifestShipmentDetails.ClientInfo.ClientID == 9021604 && _AsrManifestShipmentDetails.LoadTypeID == 66)
+                {
+                    // InnerWork last mile account to change client country/city code to KSA/DMM
+                    _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = "KSA";
+                    _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode = "DMM";
+                }
 
-            tempResult = _AsrManifestShipmentDetails.IsWaybillDetailsValid(_AsrManifestShipmentDetails, IsCourierLoadType);
-            if (tempResult.HasError)
-            {
-                WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, tempResult);
-                return tempResult.ConvertToAsrResult();
-            }
+                if (_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode == "SA")
+                    _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = "KSA";
 
-            tempResult = CheckClientLoadType(_AsrManifestShipmentDetails.ClientInfo.ClientID, _AsrManifestShipmentDetails.LoadTypeID);
-            if (tempResult.HasError)
-            {
-                return tempResult.ConvertToAsrResult();
-            }
+                if (_AsrManifestShipmentDetails.ConsigneeInfo.CountryCode == "SA")
+                    _AsrManifestShipmentDetails.ConsigneeInfo.CountryCode = "KSA";
 
-            _AsrManifestShipmentDetails.ConsigneeInfo.CheckConsigneeData(_AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.ConsigneeInfo);
-            if (_AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeDetailID == 0 || _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeID == 0)
-            {
-                result.HasError = true;
-                result.Message = "Error happend while saving Asr Consignee Info, Please insert valid data.. ";
-                return result;
-            }
+                bool IsCourierLoadType = false;
+                string courierLoadTypes = System.Configuration.ConfigurationManager.AppSettings["CourierLoadTypes"].ToString();
+                List<int> _courierLoadTypes = courierLoadTypes.Split(',').Select(Int32.Parse).ToList();
+                IsCourierLoadType = _courierLoadTypes.Contains(_AsrManifestShipmentDetails.LoadTypeID);
 
-            if (_AsrManifestShipmentDetails.WaybillNo != 0 && IsValidWBFormat(_AsrManifestShipmentDetails.WaybillNo.ToString()))
-            {
-                tempResult = CheckSpecifiedWaybillNo(_AsrManifestShipmentDetails.ClientInfo.ClientID, _AsrManifestShipmentDetails.WaybillNo);
+                if (_AsrManifestShipmentDetails.BillingType != 1)
+                {
+                    result.HasError = true;
+                    result.Message = "ASR orders billing type should be prepaid(1).";
+                    return result;
+                }
+
+                if (String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode)
+                    || String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode)
+                    || String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ConsigneeInfo.CityCode)
+                    || String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ConsigneeInfo.CountryCode))
+                {
+                    result.HasError = true;
+                    result.Message = "Invalid CityCode or CountryCode.";
+                    return result;
+                }
+                string AsrPLLoadTypes = System.Configuration.ConfigurationManager.AppSettings["AsrPLLoadTypes"].ToString();
+                string DropOffASRLoadTypes = System.Configuration.ConfigurationManager.AppSettings["DropOffASRLoadTypes"].ToString();
+                List<int> _AsrPLLoadTypes = AsrPLLoadTypes.Split(',').Select(Int32.Parse).ToList();
+                List<int> _DropOffASRLoadTypes = DropOffASRLoadTypes.Split(',').Select(Int32.Parse).ToList();
+                if (_AsrPLLoadTypes.Contains(_AsrManifestShipmentDetails.LoadTypeID))
+                {
+                    if (String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ConsigneeInfo.ParcelLockerMachineID))
+                    {
+                        result.HasError = true;
+                        result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("ErMandatoryPLIDCode");
+                        return result;
+                    }
+                    tempResult = _AsrManifestShipmentDetails.ConsigneeInfo.CheckPLmachineID(_AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.ConsigneeInfo.ParcelLockerMachineID);
+
+                }
+                else if (_DropOffASRLoadTypes.Contains(_AsrManifestShipmentDetails.LoadTypeID))
+                {
+                    if (String.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ConsigneeInfo.SPLOfficeID))
+                    {
+                        result.HasError = true;
+                        result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("ErMandatorySPLOfficeIDCode");
+                        return result;
+                    }
+                    tempResult = _AsrManifestShipmentDetails.ConsigneeInfo.CheckSPLDropOffLocation(_AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.ConsigneeInfo.SPLOfficeID);
+                }
                 if (tempResult.HasError)
+                {
+                    WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, tempResult);
                     return tempResult.ConvertToAsrResult();
-            }
+                }
+                // Swap city code and country code as Jay requested
+                string tempClientCityCode = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode;
+                string tempClientCountryCode = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode;
+                _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode = _AsrManifestShipmentDetails.ConsigneeInfo.CityCode;
+                _AsrManifestShipmentDetails.ClientInfo.ClientAddress.CountryCode = _AsrManifestShipmentDetails.ConsigneeInfo.CountryCode;
+                _AsrManifestShipmentDetails.ConsigneeInfo.CityCode = tempClientCityCode;
+                _AsrManifestShipmentDetails.ConsigneeInfo.CountryCode = tempClientCountryCode;
 
-            // Check commercial invoice
-            if (_AsrManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
-            {
-                tempResult = IsCommericalInvoiceValidBeforeWaybill(_AsrManifestShipmentDetails._CommercialInvoice, _AsrManifestShipmentDetails.ClientInfo.ClientID, "", _AsrManifestShipmentDetails.DeclareValue, _AsrManifestShipmentDetails.CurrencyID);
+                //fastco swap
+                string fastcooSwapIDs = System.Configuration.ConfigurationManager.AppSettings["FASTCOOSwap"];
+                List<int> swapClient = fastcooSwapIDs.Split(',').Select(int.Parse).ToList();
+                int fastcooClientId = _AsrManifestShipmentDetails.ClientInfo.ClientID;
+
+
+
+                if (swapClient.Contains(fastcooClientId))
+                {
+                    string tempClientName = _AsrManifestShipmentDetails.ClientInfo.ClientContact.Name;
+                    string tempClientEmail = _AsrManifestShipmentDetails.ClientInfo.ClientContact.Email;
+                    string tempClientPhone = _AsrManifestShipmentDetails.ClientInfo.ClientContact.PhoneNumber;
+                    string tempClientMobile = _AsrManifestShipmentDetails.ClientInfo.ClientContact.MobileNo;
+                    string tempClientAddress = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.FirstAddress;
+                    string tempClientNationalAddress = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.NationalAddress;
+                    string tempClientPhoneAddress = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.PhoneNumber;
+                    string tempClientFax = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.Fax;
+                    string tempClientLocation = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.Location; // clientLocation vs consignee Near
+
+                    string tempConsigneeName = _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeName;
+                    string tempConsigneeEmail = _AsrManifestShipmentDetails.ConsigneeInfo.Email;
+                    string tempConsigneePhone = _AsrManifestShipmentDetails.ConsigneeInfo.PhoneNumber;
+                    string tempConsigneePhone2 = _AsrManifestShipmentDetails.ConsigneeInfo.PhoneNumber;
+                    string tempConsigneeMobile = _AsrManifestShipmentDetails.ConsigneeInfo.Mobile;
+                    string tempConsigneeAddress = _AsrManifestShipmentDetails.ConsigneeInfo.Address;
+                    string tempConsigneeFax = _AsrManifestShipmentDetails.ConsigneeInfo.Fax;
+                    string tempConsigneeNationalAddress = _AsrManifestShipmentDetails.ConsigneeInfo.NationalAddress;
+                    string tempConsigneeNear = _AsrManifestShipmentDetails.ConsigneeInfo.Near;
+
+                    // swap
+                    _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeName = tempClientName;
+                    _AsrManifestShipmentDetails.ConsigneeInfo.Email = tempClientEmail;
+                    _AsrManifestShipmentDetails.ConsigneeInfo.PhoneNumber = tempClientPhone;
+                    _AsrManifestShipmentDetails.ConsigneeInfo.Mobile = tempClientMobile;
+                    _AsrManifestShipmentDetails.ConsigneeInfo.Address = tempClientAddress;
+                    _AsrManifestShipmentDetails.ConsigneeInfo.NationalAddress = tempClientNationalAddress;
+                    _AsrManifestShipmentDetails.ConsigneeInfo.Fax = tempClientFax;
+                    _AsrManifestShipmentDetails.ConsigneeInfo.Near = tempClientLocation;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientContact.Name = tempConsigneeName;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientContact.Email = tempConsigneeEmail;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientContact.PhoneNumber = tempConsigneePhone;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientContact.MobileNo = tempConsigneeMobile;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientAddress.FirstAddress = tempConsigneeAddress;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientAddress.NationalAddress = tempConsigneeNationalAddress;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientAddress.PhoneNumber = tempConsigneePhone2;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientAddress.Fax = tempConsigneeFax;
+                    _AsrManifestShipmentDetails.ClientInfo.ClientAddress.Location = tempConsigneeNear;
+                }
+                #region Data validation
+                tempResult = _AsrManifestShipmentDetails.ClientInfo.CheckClientInfo(_AsrManifestShipmentDetails.ClientInfo, true);
                 if (tempResult.HasError)
                 {
                     WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, tempResult);
                     return tempResult.ConvertToAsrResult();
                 }
-            }
-            #endregion
 
-            InfoTrack.BusinessLayer.DContext.DocumentDataDataContext dc = new InfoTrack.BusinessLayer.DContext.DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
+                tempResult = _AsrManifestShipmentDetails.ConsigneeInfo.CheckConsigneeInfo(_AsrManifestShipmentDetails.ConsigneeInfo, _AsrManifestShipmentDetails.ClientInfo);
+                if (tempResult.HasError)
+                {
+                    WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybill, tempResult);
+                    return tempResult.ConvertToAsrResult();
+                }
 
-            if (_AsrManifestShipmentDetails.OriginWaybillNo != 0 && !IsValidWBFormat(_AsrManifestShipmentDetails.OriginWaybillNo.ToString()))
-            {
-                result.HasError = true;
-                result.Message = "Invalid OriginWaybillNo, set 0 by default.";
-                return result;
-            }
+                _AsrManifestShipmentDetails.PickUpDate = _AsrManifestShipmentDetails.PickUpDate.Date;
+                string eal = System.Configuration.ConfigurationManager.AppSettings["ASREarliestAndLatestPickupHour"].ToString();
+                var ealList = eal.Split(',').Select(x => int.Parse(x.Trim())).ToList();
+                var earliestTime = ealList[0];
+                var latestTime = ealList[1];
+                if (DateTime.Now.Hour >= latestTime && _AsrManifestShipmentDetails.PickUpDate.Date == DateTime.Now.Date)
+                {
+                    _AsrManifestShipmentDetails.PickUpDate = _AsrManifestShipmentDetails.PickUpDate.AddDays(1);
+                }
+                if (DateTime.Now.Hour <= earliestTime && _AsrManifestShipmentDetails.PickUpDate.Date == DateTime.Now.Date.AddDays(-1))
+                {
+                    _AsrManifestShipmentDetails.PickUpDate = _AsrManifestShipmentDetails.PickUpDate.AddDays(1);
+                }
 
-            string cList = System.Configuration.ConfigurationManager.AppSettings["CheckAsrOriginWB"].ToString();
-            List<int> _cClientid = cList.Split(',').Select(Int32.Parse).ToList();
-            if (_cClientid.Contains(_AsrManifestShipmentDetails.ClientInfo.ClientID))
-            {
-                if (_AsrManifestShipmentDetails.OriginWaybillNo == 0)
+                tempResult = _AsrManifestShipmentDetails.IsWaybillDetailsValid(_AsrManifestShipmentDetails, IsCourierLoadType);
+                if (tempResult.HasError)
+                {
+                    WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, tempResult);
+                    return tempResult.ConvertToAsrResult();
+                }
+
+                CheckClientLoadType(_AsrManifestShipmentDetails.ClientInfo.ClientID, _AsrManifestShipmentDetails.LoadTypeID, ref tempResult);
+                if (tempResult.HasError)
+                {
+                    return tempResult.ConvertToAsrResult();
+                }
+
+                _AsrManifestShipmentDetails.ConsigneeInfo.CheckConsigneeData(_AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.ConsigneeInfo);
+                if (_AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeDetailID == 0 || _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeID == 0)
                 {
                     result.HasError = true;
-                    result.Message = "OriginWaybillNo is mandatory for your ClientID, please check and pass an original Naqel WaybillNo.";
+                    result.Message = "Error happend while saving Asr Consignee Info, Please insert valid data.. ";
                     return result;
                 }
 
-                if (!IsWBExist(_AsrManifestShipmentDetails.OriginWaybillNo.ToString(), _AsrManifestShipmentDetails.ClientInfo.ClientID))
+                if (_AsrManifestShipmentDetails.WaybillNo != 0 && IsValidWBFormat(_AsrManifestShipmentDetails.WaybillNo.ToString()))
                 {
-                    result.HasError = true;
-                    result.Message = "OriginWaybillNo is not found under your accounts, please check and pass an valid original Naqel WaybillNo.";
-                    return result;
+                    tempResult = CheckSpecifiedWaybillNo(_AsrManifestShipmentDetails.ClientInfo.ClientID, _AsrManifestShipmentDetails.WaybillNo);
+                    if (tempResult.HasError)
+                        return tempResult.ConvertToAsrResult();
                 }
-            }
 
-            string list = System.Configuration.ConfigurationManager.AppSettings["NoCheckRefNoClientIDs"].ToString();
-            List<int> _clientid = list.Split(',').Select(Int32.Parse).ToList();
-            if (string.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.RefNo)) { }
-
-            if (!_clientid.Contains(_AsrManifestShipmentDetails.ClientInfo.ClientID))
-            {
-                List<AsrWaybillInfo> waybillInfos = CheckExistWaybill(_AsrManifestShipmentDetails.ClientInfo.ClientID, _AsrManifestShipmentDetails.RefNo);
-                if (waybillInfos.Count() > 0)
+                // Check commercial invoice
+                if (_AsrManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
                 {
-                    AsrWaybillInfo waybillInfo = waybillInfos[0];
-                    result.WaybillNo = waybillInfo.WaybillNo;
-                    result.Key = waybillInfo.ID;
-                    result.HasError = false;
-                    result.Message = "Waybill already generated with RefNo: " + _AsrManifestShipmentDetails.RefNo;
-                    result.PickUpDate = waybillInfo.PickUpDate;
-                    return result;
-                }
-            }
-
-            // set delivery instruction and mobile as infotrack desktop needed
-            if (string.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.DeliveryInstruction))
-            {
-                _AsrManifestShipmentDetails.DeliveryInstruction = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.FirstAddress;
-            }
-
-            if (string.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ConsigneeInfo.Mobile))
-            {
-                _AsrManifestShipmentDetails.ConsigneeInfo.Mobile = _AsrManifestShipmentDetails.ConsigneeInfo.PhoneNumber;
-            }
-
-            #region Get Suitable PickUpDate
-            var AvailablePickUpDate = GetAvailablePickUpDate(_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode, _AsrManifestShipmentDetails.PickUpDate);
-            if (AvailablePickUpDate == null)
-            {
-                result.HasError = true;
-                result.Message = "No delivery schedule for this city, contact Naqel IT for further operations!";
-                return result;
-            }
-            else
-            {
-                _AsrManifestShipmentDetails.PickUpDate = (DateTime)AvailablePickUpDate;
-            }
-            #endregion
-
-            CustomerWayBill NewWaybill = new CustomerWayBill();
-            NewWaybill.ClientID = _AsrManifestShipmentDetails.ClientInfo.ClientID;
-            NewWaybill.ClientAddressID = _AsrManifestShipmentDetails.ClientInfo.ClientAddressID;
-            NewWaybill.ClientContactID = _AsrManifestShipmentDetails.ClientInfo.ClientContactID;
-            NewWaybill.LoadTypeID = _AsrManifestShipmentDetails.LoadTypeID;
-            NewWaybill.ServiceTypeID = _AsrManifestShipmentDetails.ServiceTypeID;
-            NewWaybill.BillingTypeID = _AsrManifestShipmentDetails.BillingType;
-            NewWaybill.IsCOD = _AsrManifestShipmentDetails.IsCOD;
-            NewWaybill.ConsigneeID = _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeID;
-            NewWaybill.ConsigneeAddressID = _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeDetailID;
-            NewWaybill.OriginStationID = _AsrManifestShipmentDetails.OriginStationID;
-            NewWaybill.DestinationStationID = _AsrManifestShipmentDetails.DestinationStationID;
-            NewWaybill.ODADestinationID = _AsrManifestShipmentDetails.ODADestinationStationID;
-            NewWaybill.OriginCityCode = _AsrManifestShipmentDetails.OriginCityCode;
-            NewWaybill.DestinationCityCode = _AsrManifestShipmentDetails.DestinationCityCode;
-            NewWaybill.CODCurrencyID = dc.Currencies.FirstOrDefault(p => p.CountryID == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_AsrManifestShipmentDetails.ConsigneeInfo.CountryCode))).ID;
-            NewWaybill.PickUpDate = _AsrManifestShipmentDetails.PickUpDate;
-            NewWaybill.PicesCount = _AsrManifestShipmentDetails.PicesCount;
-            NewWaybill.PromisedDeliveryDateFrom = _AsrManifestShipmentDetails.PromisedDeliveryDateFrom;
-            NewWaybill.PromisedDeliveryDateTo = _AsrManifestShipmentDetails.PromisedDeliveryDateTo;
-            NewWaybill.InsuredValue = _AsrManifestShipmentDetails.InsuredValue;
-            NewWaybill.IsInsurance = _AsrManifestShipmentDetails.InsuredValue > 0;
-            NewWaybill.Weight = _AsrManifestShipmentDetails.Weight < 0.1 ? 0.1 : Math.Round(_AsrManifestShipmentDetails.Weight, 2);
-            NewWaybill.Width = _AsrManifestShipmentDetails.Width;
-            NewWaybill.Length = _AsrManifestShipmentDetails.Length;
-            NewWaybill.Height = _AsrManifestShipmentDetails.Height;
-            NewWaybill.VolumeWeight = Math.Round(_AsrManifestShipmentDetails.VolumetricWeight, 2);
-            NewWaybill.BookingRefNo = "";
-            NewWaybill.ManifestedTime = DateTime.Now;
-            NewWaybill.DeclaredValue = Math.Round(_AsrManifestShipmentDetails.DeclareValue, 2);
-            NewWaybill.GoodDesc = _AsrManifestShipmentDetails.GoodDesc;
-            NewWaybill.Latitude = _AsrManifestShipmentDetails.Latitude;
-            NewWaybill.Longitude = _AsrManifestShipmentDetails.Longitude;
-            NewWaybill.RefNo = GlobalVar.GV.GetString(_AsrManifestShipmentDetails.RefNo, 100);
-            NewWaybill.IsPrintBarcode = false;
-            NewWaybill.StatusID = 1;
-            NewWaybill.DeliveryInstruction = GlobalVar.GV.GetString(_AsrManifestShipmentDetails.DeliveryInstruction, 200);
-            NewWaybill.CODCharge = Math.Round(_AsrManifestShipmentDetails.CODCharge, 2);
-            NewWaybill.Discount = 0;
-            NewWaybill.NetCharge = 0;
-            NewWaybill.OnAccount = 0;
-            NewWaybill.ServiceCharge = 0;
-            NewWaybill.ODAStationCharge = 0;
-            NewWaybill.OtherCharge = 0;
-            NewWaybill.PaidAmount = 0;
-            NewWaybill.SpecialCharge = 0;
-            NewWaybill.StandardShipment = 0;
-            NewWaybill.StorageCharge = 0;
-            NewWaybill.ProductTypeID = Convert.ToInt32(EnumList.ProductType.Home_Delivery);
-            NewWaybill.IsShippingAPI = true;
-            NewWaybill.PODDetail = "";
-            NewWaybill.PODTypeID = null;
-            NewWaybill.IsRTO = _AsrManifestShipmentDetails.ClientInfo.ClientID == 1024600 && _AsrManifestShipmentDetails.isRTO;
-            NewWaybill.IsManifested = false;
-            NewWaybill.GoodsVATAmount = _AsrManifestShipmentDetails.GoodsVATAmount;
-            NewWaybill.IsCustomDutyPayByConsignee = _AsrManifestShipmentDetails.IsCustomDutyPayByConsignee;
-            NewWaybill.Reference1 = _AsrManifestShipmentDetails.Reference1;
-            NewWaybill.Reference2 = _AsrManifestShipmentDetails.Reference2;
-            NewWaybill.CurrencyID = _AsrManifestShipmentDetails.CurrencyID;
-            NewWaybill.IsAfterSaleReturn = true;
-            NewWaybill.OriginalWaybillNo = Convert.ToInt32(_AsrManifestShipmentDetails.OriginWaybillNo);
-
-            // Check consigneeID for High Value waybills // ASR no need for DV validation
-            //if (NewWaybill.DeclaredValue > 0)
-            //{
-            //    double HighValueDV = 0;
-            //    var cur = dc.Currencies.FirstOrDefault(p => p.ID == _AsrManifestShipmentDetails.CurrencyID);
-            //    HighValueDV = _AsrManifestShipmentDetails.DeclareValue / cur.ExchangeRate;
-
-            //    if (HighValueDV > 266.67)
-            //    {
-            //        string list1 = System.Configuration.ConfigurationManager.AppSettings["ParentChildClientIDs"].ToString(); //ParentChildClientIDs
-            //        List<int> _clientid1 = list1.Split(',').Select(Int32.Parse).ToList();
-
-
-            //        if (!_clientid1.Contains(NewWaybill.ClientID))
-            //        {
-            //            NewWaybill.ConsigneeNationalID = _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalID.ToString();
-            //            if (NewWaybill.ConsigneeNationalID.Length != 10)
-            //            {
-            //                result.HasError = true;
-            //                result.Message = "Error happend while saving ConsigneeNationalID, Please insert a valid ID";
-            //                return result;
-            //            }
-            //        }
-            //    }
-            //}
-
-            #region "Migration to Stored Procedure"
-
-            try
-            {
-                string spName = "APICreateCustomerWaybillASR_NewLength";
-                var w = new DynamicParameters();
-                w.Add("@WayBillNo", _AsrManifestShipmentDetails.WaybillNo != 0 ? _AsrManifestShipmentDetails.WaybillNo : NewWaybill.WayBillNo);
-                w.Add("@ClientID", NewWaybill.ClientID);
-                w.Add("@ClientAddressID", NewWaybill.ClientAddressID);
-                w.Add("@ClientContactID", NewWaybill.ClientContactID);
-                w.Add("@ServiceTypeID", NewWaybill.ServiceTypeID);
-                w.Add("@LoadTypeID", NewWaybill.LoadTypeID);
-                w.Add("@BillingTypeID", NewWaybill.BillingTypeID);
-                w.Add("@ConsigneeID", NewWaybill.ConsigneeID);
-                w.Add("@ConsigneeAddressID", NewWaybill.ConsigneeAddressID);
-                w.Add("@OriginStationID", NewWaybill.OriginStationID);
-                w.Add("@DestinationStationID", NewWaybill.DestinationStationID);
-                w.Add("@PickUpDate", NewWaybill.PickUpDate);
-                w.Add("@PicesCount", NewWaybill.PicesCount);
-                w.Add("@Weight", NewWaybill.Weight);
-                w.Add("@Width", NewWaybill.Width);
-                w.Add("@Length", NewWaybill.Length);
-                w.Add("@Height", NewWaybill.Height);
-                w.Add("@VolumeWeight", NewWaybill.VolumeWeight);
-                w.Add("@BookingRefNo", NewWaybill.BookingRefNo);
-                w.Add("@ManifestedTime", NewWaybill.ManifestedTime);
-                w.Add("@RefNo", NewWaybill.RefNo);
-                w.Add("@IsPrintBarcode", NewWaybill.IsPrintBarcode);
-                w.Add("@StatusID", NewWaybill.StatusID);
-                w.Add("@BookingID", NewWaybill.BookingID);
-                w.Add("@IsInsurance", NewWaybill.IsInsurance);
-                w.Add("@DeclaredValue", NewWaybill.DeclaredValue);
-                w.Add("@InsuredValue", NewWaybill.InsuredValue);
-                w.Add("@PODTypeID", NewWaybill.PODTypeID);
-                w.Add("@PODDetail", NewWaybill.PODDetail);
-                w.Add("@DeliveryInstruction", NewWaybill.DeliveryInstruction);
-                w.Add("@ServiceCharge", NewWaybill.ServiceCharge);
-                w.Add("@StandardShipment", NewWaybill.StandardShipment);
-                w.Add("@SpecialCharge", NewWaybill.SpecialCharge);
-                w.Add("@ODAStationCharge", NewWaybill.ODAStationCharge);
-                w.Add("@OtherCharge", NewWaybill.OtherCharge);
-                w.Add("@Discount", NewWaybill.Discount);
-                w.Add("@NetCharge", NewWaybill.NetCharge);
-                w.Add("@PaidAmount", NewWaybill.PaidAmount);
-                w.Add("@OnAccount", NewWaybill.OnAccount);
-                w.Add("@StandardTariffID", NewWaybill.StandardTariffID);
-                w.Add("@IsCOD", NewWaybill.IsCOD);
-                w.Add("@CODCharge", NewWaybill.CODCharge);
-                w.Add("@ProductTypeID", NewWaybill.ProductTypeID);
-                w.Add("@IsShippingAPI", NewWaybill.IsShippingAPI);
-                w.Add("@Contents", NewWaybill.Contents);
-                w.Add("@BatchNo", NewWaybill.BatchNo);
-                w.Add("@ODAOriginID", NewWaybill.ODAOriginID);
-                w.Add("@ODADestinationID", NewWaybill.ODADestinationID);
-                w.Add("@CreatedContactID", NewWaybill.CreatedContactID);
-                w.Add("@IsRTO", NewWaybill.IsRTO);
-                w.Add("@IsManifested", NewWaybill.IsManifested);
-                w.Add("@GoodDesc", NewWaybill.GoodDesc);
-                w.Add("@Latitude", NewWaybill.Latitude);
-                w.Add("@Longitude", NewWaybill.Longitude);
-                w.Add("@HSCode", NewWaybill.HSCode);
-                w.Add("@CustomDutyAmount", NewWaybill.CustomDutyAmount);
-                w.Add("@GoodsVATAmount", NewWaybill.GoodsVATAmount);
-                w.Add("@IsCustomDutyPayByConsignee", NewWaybill.IsCustomDutyPayByConsignee);
-                w.Add("@Reference1", NewWaybill.Reference1);
-                w.Add("@Reference2", NewWaybill.Reference2);
-                w.Add("@ConsigneeNationalID", NewWaybill.ConsigneeNationalID);
-                w.Add("@CurrencyID", NewWaybill.CurrencyID);
-                w.Add("@IsSentSMS", NewWaybill.IsSentSMS);
-                //w.Add("@SurChargeCodeID", NewWaybill.SurChargeCodeID);
-                w.Add("@OriginCityCode", NewWaybill.OriginCityCode);
-                w.Add("@DestinationCityCode", NewWaybill.DestinationCityCode);
-                w.Add("@IsAfterSaleReturn", NewWaybill.IsAfterSaleReturn);
-                w.Add("@OriginalWaybillNo", NewWaybill.OriginalWaybillNo);
-
-                w.Add(name: "@RetVal", dbType: DbType.Int32, direction: ParameterDirection.ReturnValue);
-                w.Add(name: "@CustWaybillID", dbType: DbType.Int32, direction: ParameterDirection.Output);
-                //w.Add(name: "@WaybillNo", dbType: DbType.Int32, direction: ParameterDirection.Output);
-
-                using (IDbConnection db = new SqlConnection(sqlCon))
-                {
-                    //GetWaybillNo on Saving
-                    var returnCode = db.Execute(spName, param: w, commandType: CommandType.StoredProcedure);
-                    NewWaybill.WayBillNo = w.Get<int>("@RetVal");
-
-                    if (NewWaybill.WayBillNo == -1)
+                    tempResult = IsCommericalInvoiceValidBeforeWaybill(_AsrManifestShipmentDetails._CommercialInvoice, _AsrManifestShipmentDetails.ClientInfo.ClientID, "", _AsrManifestShipmentDetails.DeclareValue, _AsrManifestShipmentDetails.CurrencyID);
+                    if (tempResult.HasError)
                     {
-                        result.HasError = true;
-                        ////result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("ErWebServiceNullInvoiceNoExists");
-                        result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("Commercial Invoices already exist.");
-                        return result;
+                        WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, tempResult);
+                        return tempResult.ConvertToAsrResult();
                     }
-                    if (NewWaybill.WayBillNo == -2)
+                }
+                #endregion
+
+                InfoTrack.BusinessLayer.DContext.DocumentDataDataContext dc = new InfoTrack.BusinessLayer.DContext.DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
+
+                if (_AsrManifestShipmentDetails.OriginWaybillNo != 0 && !IsValidWBFormat(_AsrManifestShipmentDetails.OriginWaybillNo.ToString()))
+                {
+                    result.HasError = true;
+                    result.Message = "Invalid OriginWaybillNo, set 0 by default.";
+                    return result;
+                }
+
+                string cList = System.Configuration.ConfigurationManager.AppSettings["CheckAsrOriginWB"].ToString();
+                List<int> _cClientid = cList.Split(',').Select(Int32.Parse).ToList();
+                if (_cClientid.Contains(_AsrManifestShipmentDetails.ClientInfo.ClientID))
+                {
+                    if (_AsrManifestShipmentDetails.OriginWaybillNo == 0)
                     {
                         result.HasError = true;
-                        result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("WaybillNo generate failed, contact Naqel IT for further operations.");
+                        result.Message = "OriginWaybillNo is mandatory for your ClientID, please check and pass an original Naqel WaybillNo.";
                         return result;
                     }
 
-                    NewWaybill.ID = w.Get<int>("@CustWaybillID");
+                    if (!IsWBExist(_AsrManifestShipmentDetails.OriginWaybillNo.ToString(), _AsrManifestShipmentDetails.ClientInfo.ClientID))
+                    {
+                        result.HasError = true;
+                        result.Message = "OriginWaybillNo is not found under your accounts, please check and pass an valid original Naqel WaybillNo.";
+                        return result;
+                    }
                 }
-            }
-            catch (Exception e)
-            {
-                LogException(e);
-                result.HasError = true;
-                result.Message = "an error happen when saving the waybill details code : 120";
-                GlobalVar.GV.AddErrorMessage(e, _AsrManifestShipmentDetails.ClientInfo);
-                WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, result);
-                GlobalVar.GV.AddErrorMessage1(dc.Connection.ConnectionString, _AsrManifestShipmentDetails.ClientInfo);
-                return result;
-            }
-            #endregion
 
-            // Save CommercialInvoice
-            if (!result.HasError && _AsrManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
-            {
-                _AsrManifestShipmentDetails._CommercialInvoice.InvoiceNo = Convert.ToString(NewWaybill.WayBillNo);
-                //tempResult = IsCommericalInvoiceValid(_AsrManifestShipmentDetails._CommercialInvoice, _AsrManifestShipmentDetails.ClientInfo.ClientID, "", _AsrManifestShipmentDetails.DeclareValue, _AsrManifestShipmentDetails.CurrencyID);
-                //if (tempResult.HasError)
+                string list = System.Configuration.ConfigurationManager.AppSettings["NoCheckRefNoClientIDs"].ToString();
+                List<int> _clientid = list.Split(',').Select(Int32.Parse).ToList();
+                if (string.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.RefNo)) { }
+
+                if (!_clientid.Contains(_AsrManifestShipmentDetails.ClientInfo.ClientID))
+                {
+                    List<AsrWaybillInfo> waybillInfos = CheckExistWaybill(_AsrManifestShipmentDetails.ClientInfo.ClientID, _AsrManifestShipmentDetails.RefNo);
+                    if (waybillInfos.Count() > 0)
+                    {
+                        AsrWaybillInfo waybillInfo = waybillInfos[0];
+                        result.WaybillNo = waybillInfo.WaybillNo;
+                        result.Key = waybillInfo.ID;
+                        result.HasError = false;
+                        result.Message = "Waybill already generated with RefNo: " + _AsrManifestShipmentDetails.RefNo;
+                        result.PickUpDate = waybillInfo.PickUpDate;
+                        return result;
+                    }
+                }
+
+                // set delivery instruction and mobile as infotrack desktop needed
+                if (string.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.DeliveryInstruction))
+                {
+                    _AsrManifestShipmentDetails.DeliveryInstruction = _AsrManifestShipmentDetails.ClientInfo.ClientAddress.FirstAddress;
+                }
+
+                if (string.IsNullOrWhiteSpace(_AsrManifestShipmentDetails.ConsigneeInfo.Mobile))
+                {
+                    _AsrManifestShipmentDetails.ConsigneeInfo.Mobile = _AsrManifestShipmentDetails.ConsigneeInfo.PhoneNumber;
+                }
+
+                #region Get Suitable PickUpDate
+                var AvailablePickUpDate = GetAvailablePickUpDate(_AsrManifestShipmentDetails.ClientInfo.ClientAddress.CityCode, _AsrManifestShipmentDetails.PickUpDate);
+                if (AvailablePickUpDate == null)
+                {
+                    result.HasError = true;
+                    result.Message = "No delivery schedule for this city, contact Naqel IT for further operations!";
+                    return result;
+                }
+                else
+                {
+                    _AsrManifestShipmentDetails.PickUpDate = (DateTime)AvailablePickUpDate;
+                }
+                #endregion
+
+                CustomerWayBill NewWaybill = new CustomerWayBill();
+                NewWaybill.ClientID = _AsrManifestShipmentDetails.ClientInfo.ClientID;
+                NewWaybill.ClientAddressID = _AsrManifestShipmentDetails.ClientInfo.ClientAddressID;
+                NewWaybill.ClientContactID = _AsrManifestShipmentDetails.ClientInfo.ClientContactID;
+                NewWaybill.LoadTypeID = _AsrManifestShipmentDetails.LoadTypeID;
+                NewWaybill.ServiceTypeID = _AsrManifestShipmentDetails.ServiceTypeID;
+                NewWaybill.BillingTypeID = _AsrManifestShipmentDetails.BillingType;
+                NewWaybill.IsCOD = _AsrManifestShipmentDetails.IsCOD;
+                NewWaybill.ConsigneeID = _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeID;
+                NewWaybill.ConsigneeAddressID = _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeDetailID;
+                if (swapClient.Contains(fastcooClientId))
+                {
+                    NewWaybill.OriginStationID = _AsrManifestShipmentDetails.DestinationStationID;
+                    NewWaybill.DestinationStationID = _AsrManifestShipmentDetails.OriginStationID;
+                    NewWaybill.OriginCityCode = _AsrManifestShipmentDetails.DestinationCityCode;
+                    NewWaybill.DestinationCityCode = _AsrManifestShipmentDetails.OriginCityCode;
+                }
+                else
+                {
+                    NewWaybill.OriginStationID = _AsrManifestShipmentDetails.OriginStationID;
+                    NewWaybill.DestinationStationID = _AsrManifestShipmentDetails.DestinationStationID;
+                    NewWaybill.OriginCityCode = _AsrManifestShipmentDetails.OriginCityCode;
+                    NewWaybill.DestinationCityCode = _AsrManifestShipmentDetails.DestinationCityCode;
+                }
+                NewWaybill.ODADestinationID = _AsrManifestShipmentDetails.ODADestinationStationID;
+                NewWaybill.CODCurrencyID = dc.Currencies.FirstOrDefault(p => p.CountryID == Convert.ToInt32(GlobalVar.GV.GetCountryIDByCountryCode(_AsrManifestShipmentDetails.ConsigneeInfo.CountryCode))).ID;
+                NewWaybill.PickUpDate = _AsrManifestShipmentDetails.PickUpDate;
+                NewWaybill.PicesCount = _AsrManifestShipmentDetails.PicesCount;
+                NewWaybill.PromisedDeliveryDateFrom = _AsrManifestShipmentDetails.PromisedDeliveryDateFrom;
+                NewWaybill.PromisedDeliveryDateTo = _AsrManifestShipmentDetails.PromisedDeliveryDateTo;
+                NewWaybill.InsuredValue = _AsrManifestShipmentDetails.InsuredValue;
+                NewWaybill.IsInsurance = _AsrManifestShipmentDetails.InsuredValue > 0;
+                NewWaybill.Weight = _AsrManifestShipmentDetails.Weight < 0.1 ? 0.1 : Math.Round(_AsrManifestShipmentDetails.Weight, 2);
+                NewWaybill.Width = _AsrManifestShipmentDetails.Width;
+                NewWaybill.Length = _AsrManifestShipmentDetails.Length;
+                NewWaybill.Height = _AsrManifestShipmentDetails.Height;
+                NewWaybill.VolumeWeight = Math.Round(_AsrManifestShipmentDetails.VolumetricWeight, 2);
+                NewWaybill.BookingRefNo = "";
+                NewWaybill.ManifestedTime = DateTime.Now;
+                NewWaybill.DeclaredValue = Math.Round(_AsrManifestShipmentDetails.DeclareValue, 2);
+                NewWaybill.GoodDesc = _AsrManifestShipmentDetails.GoodDesc;
+                NewWaybill.Latitude = _AsrManifestShipmentDetails.Latitude;
+                NewWaybill.Longitude = _AsrManifestShipmentDetails.Longitude;
+                NewWaybill.RefNo = GlobalVar.GV.GetString(_AsrManifestShipmentDetails.RefNo, 100);
+                NewWaybill.IsPrintBarcode = false;
+                NewWaybill.StatusID = 1;
+                NewWaybill.DeliveryInstruction = GlobalVar.GV.GetString(_AsrManifestShipmentDetails.DeliveryInstruction, 200);
+                NewWaybill.CODCharge = Math.Round(_AsrManifestShipmentDetails.CODCharge, 2);
+                NewWaybill.Discount = 0;
+                NewWaybill.NetCharge = 0;
+                NewWaybill.OnAccount = 0;
+                NewWaybill.ServiceCharge = 0;
+                NewWaybill.ODAStationCharge = 0;
+                NewWaybill.OtherCharge = 0;
+                NewWaybill.PaidAmount = 0;
+                NewWaybill.SpecialCharge = 0;
+                NewWaybill.StandardShipment = 0;
+                NewWaybill.StorageCharge = 0;
+                NewWaybill.ProductTypeID = Convert.ToInt32(EnumList.ProductType.Home_Delivery);
+                NewWaybill.IsShippingAPI = true;
+                NewWaybill.PODDetail = "";
+                NewWaybill.PODTypeID = null;
+                NewWaybill.IsRTO = _AsrManifestShipmentDetails.ClientInfo.ClientID == 1024600 && _AsrManifestShipmentDetails.isRTO;
+                NewWaybill.IsManifested = false;
+                NewWaybill.GoodsVATAmount = _AsrManifestShipmentDetails.GoodsVATAmount;
+                NewWaybill.IsCustomDutyPayByConsignee = _AsrManifestShipmentDetails.IsCustomDutyPayByConsignee;
+                NewWaybill.Reference1 = _AsrManifestShipmentDetails.Reference1;
+                NewWaybill.Reference2 = _AsrManifestShipmentDetails.Reference2;
+                NewWaybill.CurrencyID = _AsrManifestShipmentDetails.CurrencyID;
+                NewWaybill.IsAfterSaleReturn = true;
+                NewWaybill.OriginalWaybillNo = Convert.ToInt32(_AsrManifestShipmentDetails.OriginWaybillNo);
+
+                // Check consigneeID for High Value waybills // ASR no need for DV validation
+                //if (NewWaybill.DeclaredValue > 0)
                 //{
-                //    result.HasError = true;
-                //    result.Message = "an error happen when saving the Commerical Invoice, please make sure to pass valid values: " + tempResult.Message;
-                //    WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, tempResult);
-                //    return result;
+                //    double HighValueDV = 0;
+                //    var cur = dc.Currencies.FirstOrDefault(p => p.ID == _AsrManifestShipmentDetails.CurrencyID);
+                //    HighValueDV = _AsrManifestShipmentDetails.DeclareValue / cur.ExchangeRate;
+
+                //    if (HighValueDV > 266.67)
+                //    {
+                //        string list1 = System.Configuration.ConfigurationManager.AppSettings["ParentChildClientIDs"].ToString(); //ParentChildClientIDs
+                //        List<int> _clientid1 = list1.Split(',').Select(Int32.Parse).ToList();
+
+
+                //        if (!_clientid1.Contains(NewWaybill.ClientID))
+                //        {
+                //            NewWaybill.ConsigneeNationalID = _AsrManifestShipmentDetails.ConsigneeInfo.ConsigneeNationalID.ToString();
+                //            if (NewWaybill.ConsigneeNationalID.Length != 10)
+                //            {
+                //                result.HasError = true;
+                //                result.Message = "Error happend while saving ConsigneeNationalID, Please insert a valid ID";
+                //                return result;
+                //            }
+                //        }
+                //    }
                 //}
 
-                tempResult = CreateCommercialInvoice(_AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails._CommercialInvoice);
+                #region "Migration to Stored Procedure"
+
+                try
+                {
+                    string spName = "APICreateCustomerWaybillASR_NewLength";
+                    var w = new DynamicParameters();
+                    w.Add("@WayBillNo", _AsrManifestShipmentDetails.WaybillNo != 0 ? _AsrManifestShipmentDetails.WaybillNo : NewWaybill.WayBillNo);
+                    w.Add("@ClientID", NewWaybill.ClientID);
+                    w.Add("@ClientAddressID", NewWaybill.ClientAddressID);
+                    w.Add("@ClientContactID", NewWaybill.ClientContactID);
+                    w.Add("@ServiceTypeID", NewWaybill.ServiceTypeID);
+                    w.Add("@LoadTypeID", NewWaybill.LoadTypeID);
+                    w.Add("@BillingTypeID", NewWaybill.BillingTypeID);
+                    w.Add("@ConsigneeID", NewWaybill.ConsigneeID);
+                    w.Add("@ConsigneeAddressID", NewWaybill.ConsigneeAddressID);
+                    w.Add("@OriginStationID", NewWaybill.OriginStationID);
+                    w.Add("@DestinationStationID", NewWaybill.DestinationStationID);
+                    w.Add("@PickUpDate", NewWaybill.PickUpDate);
+                    w.Add("@PicesCount", NewWaybill.PicesCount);
+                    w.Add("@Weight", NewWaybill.Weight);
+                    w.Add("@Width", NewWaybill.Width);
+                    w.Add("@Length", NewWaybill.Length);
+                    w.Add("@Height", NewWaybill.Height);
+                    w.Add("@VolumeWeight", NewWaybill.VolumeWeight);
+                    w.Add("@BookingRefNo", NewWaybill.BookingRefNo);
+                    w.Add("@ManifestedTime", NewWaybill.ManifestedTime);
+                    w.Add("@RefNo", NewWaybill.RefNo);
+                    w.Add("@IsPrintBarcode", NewWaybill.IsPrintBarcode);
+                    w.Add("@StatusID", NewWaybill.StatusID);
+                    w.Add("@BookingID", NewWaybill.BookingID);
+                    w.Add("@IsInsurance", NewWaybill.IsInsurance);
+                    w.Add("@DeclaredValue", NewWaybill.DeclaredValue);
+                    w.Add("@InsuredValue", NewWaybill.InsuredValue);
+                    w.Add("@PODTypeID", NewWaybill.PODTypeID);
+                    w.Add("@PODDetail", NewWaybill.PODDetail);
+                    w.Add("@DeliveryInstruction", NewWaybill.DeliveryInstruction);
+                    w.Add("@ServiceCharge", NewWaybill.ServiceCharge);
+                    w.Add("@StandardShipment", NewWaybill.StandardShipment);
+                    w.Add("@SpecialCharge", NewWaybill.SpecialCharge);
+                    w.Add("@ODAStationCharge", NewWaybill.ODAStationCharge);
+                    w.Add("@OtherCharge", NewWaybill.OtherCharge);
+                    w.Add("@Discount", NewWaybill.Discount);
+                    w.Add("@NetCharge", NewWaybill.NetCharge);
+                    w.Add("@PaidAmount", NewWaybill.PaidAmount);
+                    w.Add("@OnAccount", NewWaybill.OnAccount);
+                    w.Add("@StandardTariffID", NewWaybill.StandardTariffID);
+                    w.Add("@IsCOD", NewWaybill.IsCOD);
+                    w.Add("@CODCharge", NewWaybill.CODCharge);
+                    w.Add("@ProductTypeID", NewWaybill.ProductTypeID);
+                    w.Add("@IsShippingAPI", NewWaybill.IsShippingAPI);
+                    w.Add("@Contents", NewWaybill.Contents);
+                    w.Add("@BatchNo", NewWaybill.BatchNo);
+                    w.Add("@ODAOriginID", NewWaybill.ODAOriginID);
+                    w.Add("@ODADestinationID", NewWaybill.ODADestinationID);
+                    w.Add("@CreatedContactID", NewWaybill.CreatedContactID);
+                    w.Add("@IsRTO", NewWaybill.IsRTO);
+                    w.Add("@IsManifested", NewWaybill.IsManifested);
+                    w.Add("@GoodDesc", NewWaybill.GoodDesc);
+                    w.Add("@Latitude", NewWaybill.Latitude);
+                    w.Add("@Longitude", NewWaybill.Longitude);
+                    w.Add("@HSCode", NewWaybill.HSCode);
+                    w.Add("@CustomDutyAmount", NewWaybill.CustomDutyAmount);
+                    w.Add("@GoodsVATAmount", NewWaybill.GoodsVATAmount);
+                    w.Add("@IsCustomDutyPayByConsignee", NewWaybill.IsCustomDutyPayByConsignee);
+                    w.Add("@Reference1", NewWaybill.Reference1);
+                    w.Add("@Reference2", NewWaybill.Reference2);
+                    w.Add("@ConsigneeNationalID", NewWaybill.ConsigneeNationalID);
+                    w.Add("@CurrencyID", NewWaybill.CurrencyID);
+                    w.Add("@IsSentSMS", NewWaybill.IsSentSMS);
+                    //w.Add("@SurChargeCodeID", NewWaybill.SurChargeCodeID);
+                    w.Add("@OriginCityCode", NewWaybill.OriginCityCode);
+                    w.Add("@DestinationCityCode", NewWaybill.DestinationCityCode);
+                    w.Add("@IsAfterSaleReturn", NewWaybill.IsAfterSaleReturn);
+                    w.Add("@OriginalWaybillNo", NewWaybill.OriginalWaybillNo);
+
+                    w.Add(name: "@RetVal", dbType: DbType.Int32, direction: ParameterDirection.ReturnValue);
+                    w.Add(name: "@CustWaybillID", dbType: DbType.Int32, direction: ParameterDirection.Output);
+                    //w.Add(name: "@WaybillNo", dbType: DbType.Int32, direction: ParameterDirection.Output);
+
+                    using (IDbConnection db = new SqlConnection(sqlCon))
+                    {
+                        //GetWaybillNo on Saving
+                        var returnCode = db.Execute(spName, param: w, commandType: CommandType.StoredProcedure);
+                        NewWaybill.WayBillNo = w.Get<int>("@RetVal");
+
+                        if (NewWaybill.WayBillNo == -1)
+                        {
+                            result.HasError = true;
+                            ////result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("ErWebServiceNullInvoiceNoExists");
+                            result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("Commercial Invoices already exist.");
+                            return result;
+                        }
+                        if (NewWaybill.WayBillNo == -2)
+                        {
+                            result.HasError = true;
+                            result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("WaybillNo generate failed, contact Naqel IT for further operations.");
+                            return result;
+                        }
+
+                        NewWaybill.ID = w.Get<int>("@CustWaybillID");
+                    }
+                }
+                catch (Exception e)
+                {
+                    LogException(e);
+                    result.HasError = true;
+                    result.Message = "an error happen when saving the waybill details code : 120";
+
+                    GlobalVar.GV.AddErrorMessage(e, _AsrManifestShipmentDetails.ClientInfo);
+                    WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, result);
+                    //GlobalVar.GV.AddErrorMessage1(dc.Connection.ConnectionString, _AsrManifestShipmentDetails.ClientInfo);
+                    return result;
+                }
+                #endregion
+
+                // Save CommercialInvoice
+                if (!result.HasError && _AsrManifestShipmentDetails._CommercialInvoice.CommercialInvoiceDetailList.Count() > 0)
+                {
+                    _AsrManifestShipmentDetails._CommercialInvoice.InvoiceNo = Convert.ToString(NewWaybill.WayBillNo);
+                    //tempResult = IsCommericalInvoiceValid(_AsrManifestShipmentDetails._CommercialInvoice, _AsrManifestShipmentDetails.ClientInfo.ClientID, "", _AsrManifestShipmentDetails.DeclareValue, _AsrManifestShipmentDetails.CurrencyID);
+                    //if (tempResult.HasError)
+                    //{
+                    //    result.HasError = true;
+                    //    result.Message = "an error happen when saving the Commerical Invoice, please make sure to pass valid values: " + tempResult.Message;
+                    //    WritetoXML(_AsrManifestShipmentDetails, _AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails.RefNo, EnumList.MethodType.CreateWaybillForASR, tempResult);
+                    //    return result;
+                    //}
+
+                    tempResult = CreateCommercialInvoice(_AsrManifestShipmentDetails.ClientInfo, _AsrManifestShipmentDetails._CommercialInvoice);
+                    if (tempResult.HasError)
+                        return tempResult.ConvertToAsrResult();
+                }
+
+                if (!result.HasError)
+                    tempResult = WaybillSurcharge(NewWaybill.WayBillNo, _AsrManifestShipmentDetails.ClientInfo.ClientID, _AsrManifestShipmentDetails.WaybillSurcharge.SurchargeIDList);
                 if (tempResult.HasError)
                     return tempResult.ConvertToAsrResult();
+
+                if (!result.HasError)
+                {
+                    result.WaybillNo = NewWaybill.WayBillNo;
+                    result.Key = NewWaybill.ID;
+                    result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("NewWaybillSuccess");
+                    result.PickUpDate = NewWaybill.PickUpDate.Date;
+                }
+
+                if (WaybillNo <= 0)
+                    GlobalVar.GV.CreateShippingAPIRequest(_AsrManifestShipmentDetails.ClientInfo, EnumList.APIRequestType.Create_New_Shipment, result.WaybillNo.ToString(), result.Key);
+                else
+                    GlobalVar.GV.CreateShippingAPIRequest(_AsrManifestShipmentDetails.ClientInfo, EnumList.APIRequestType.UpdateWaybill, WaybillNo.ToString(), result.Key);
+                return result;
             }
-
-            if (!result.HasError)
-                tempResult = WaybillSurcharge(NewWaybill.WayBillNo, _AsrManifestShipmentDetails.ClientInfo.ClientID, _AsrManifestShipmentDetails.WaybillSurcharge.SurchargeIDList);
-            if (tempResult.HasError)
-                return tempResult.ConvertToAsrResult();
-
-            if (!result.HasError)
-            {
-                result.WaybillNo = NewWaybill.WayBillNo;
-                result.Key = NewWaybill.ID;
-                result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("NewWaybillSuccess");
-                result.PickUpDate = NewWaybill.PickUpDate.Date;
+            catch (Exception ex)
+                {
+                GlobalVar.GV.AddErrorMessage(ex, _AsrManifestShipmentDetails.ClientInfo, (_AsrManifestShipmentDetails.RefNo + "Overall"));
+                LogException(ex);
+                result.HasError = true;
+                result.Message = "an error happen when saving the waybill details code : 120";
+                return result;
             }
-
-            if (WaybillNo <= 0)
-                GlobalVar.GV.CreateShippingAPIRequest(_AsrManifestShipmentDetails.ClientInfo, EnumList.APIRequestType.Create_New_Shipment, result.WaybillNo.ToString(), result.Key);
-            else
-                GlobalVar.GV.CreateShippingAPIRequest(_AsrManifestShipmentDetails.ClientInfo, EnumList.APIRequestType.UpdateWaybill, WaybillNo.ToString(), result.Key);
-            return result;
         }
 
         [WebMethod(Description = "You can use this function to Cancel an ASR waybill in the system.")]
@@ -1551,6 +1810,7 @@ namespace InfoTrack.NaqelAPI
                    EnumList.MethodType.CancelWaybill);
 
             Result result = new Result();
+            int EmID = -1; // 18494;
 
             #region Data validation
             if (!IsValidWBFormat(WaybillNo.ToString()))
@@ -1576,7 +1836,12 @@ namespace InfoTrack.NaqelAPI
                 return result;
             }
 
-            if (!IsAvailableToCancelAsrWaybill(ClientInfo.ClientID, WaybillNo))
+            string sheinASRClientIDs = System.Configuration.ConfigurationManager.AppSettings["SheinASRClientIDs"].ToString();
+            List<int> list_SheinASRClientIDs = sheinASRClientIDs.Split(',').Select(Int32.Parse).ToList();
+            bool isAvailableToCancel = false;
+
+            isAvailableToCancel = IsAvailableToCancelAsrWaybill(ClientInfo.ClientID, WaybillNo);
+            if (!isAvailableToCancel)
             {
                 result.HasError = true;
                 result.WaybillNo = WaybillNo;
@@ -1592,6 +1857,28 @@ namespace InfoTrack.NaqelAPI
             temWb.StatusID = 3;
             temWb.Reference2 = CancelReason;
 
+            BusinessLayer.DContext.Tracking tempTracking = new BusinessLayer.DContext.Tracking()
+            {
+                WaybillID = null,
+                WaybillNo = temWb.WayBillNo,
+                StationID = 2499,
+                Date = DateTime.Now,
+                EmployID = EmID,
+                IsSent = false,
+                StatusID = 1,
+                HasError = false,
+                ErrorMessage = "",
+                Comments = "",
+                DBTableID = 858,
+                KeyID = temWb.ID,
+                TrackingTypeID = 47,
+                TerminalHandlingScanStatusID = 1,
+                TerminalHandlingScanStatusReasonID = 2,
+                EventFinalStatusID = 4
+            };
+
+            dc.Trackings.InsertOnSubmit(tempTracking);
+
             try
             {
                 dc.SubmitChanges();
@@ -1605,6 +1892,18 @@ namespace InfoTrack.NaqelAPI
                 result.Message = "Cancel ASR Waybill failed, please try again later.";
                 GlobalVar.GV.AddErrorMessage(e, ClientInfo);
             }
+
+            //add the canceled waybill in Cancelwaybill table
+            dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
+
+            CancelWaybill CanceledWaybill = new CancelWaybill();
+            CanceledWaybill.WayBillNo = WaybillNo;
+            CanceledWaybill.Date = DateTime.Now;
+            CanceledWaybill.BookingRefNo = temWb.BookingRefNo;
+            CanceledWaybill.ClientContactID = temWb.ClientContactID;
+
+            dcMaster.CancelWaybills.InsertOnSubmit(CanceledWaybill);
+            dcMaster.SubmitChanges();
 
             if (!result.HasError)
             {
@@ -1622,14 +1921,23 @@ namespace InfoTrack.NaqelAPI
             var clientIDs = GetCrossTrackingClientIDs(ClientID);
             List<int> intClientIDs = clientIDs.Split(',').Select(Int32.Parse).ToList();
 
-            int tempLoadTypeID = dc.CustomerWayBills.Where(c => intClientIDs.Contains(c.ClientID) && c.WayBillNo == WaybillNo && c.StatusID == 1)
-                .Select(c => c.LoadTypeID).FirstOrDefault();
+            int tempLoadTypeID = (from a in dc.CustomerWayBills
+
+                                  join b in dc.PickupSheetDetails
+                                  on new { A = a.WayBillNo, B = DateTime.Now.Date, C = 1 }
+                                  equals new { A = b.WaybillNo, B = b.PickUpDate.Value.Date, C = b.StatusID } into joinb
+                                  from b in joinb.DefaultIfEmpty()
+
+                                  where a.StatusID == 1 && intClientIDs.Contains(a.ClientID)
+                                  && b == null
+                                  && a.WayBillNo == WaybillNo
+                                  select a.LoadTypeID).FirstOrDefault();
 
             bool isPicked = dc.Waybills.Where(w => w.WayBillNo == WaybillNo && w.ClientID == ClientID).Any();
-            bool hasOFP = HasOFP(WaybillNo);
 
-            var asrLoadTypeIDs = new List<int> { 66, 136, 204, 206 };
-            return asrLoadTypeIDs.Contains(tempLoadTypeID) && !isPicked && !hasOFP;
+            string strASRLoadtypes = System.Configuration.ConfigurationManager.AppSettings["ASRLoadTypes"].ToString();
+            List<int> asrLoadTypeIDs = strASRLoadtypes.Split(',').Select(Int32.Parse).ToList();
+            return asrLoadTypeIDs.Contains(tempLoadTypeID) && !isPicked;
         }
 
         private bool HasOFP(int WaybillNo)
@@ -2232,17 +2540,16 @@ and ClientID = " + ClientID
         //    return result;
         //}
         #endregion
-        private Result CheckClientLoadType(int _clientId, int _LoadTypeId)
+        private void CheckClientLoadType(int clientId, int loadTypeId, ref Result result)
         {
-            Result result = new Result();
-            dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
-            if (dcMaster.ViwLoadTypeByClients.Where(p => p.ClientID == _clientId && p.ID == _LoadTypeId).Count() <= 0)
+            using (dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection()))
             {
-                result.HasError = true;
-                result.Message = "This LoadTypeId is not correct, Please provide a valid LoadType as per your agreement";
-                return result;
+                if (!dcMaster.ViwLoadTypeByClients.Any(p => p.ClientID == clientId && p.ID == loadTypeId))
+                {
+                    result.HasError = true;
+                    result.Message = "This LoadTypeId is not correct, Please provide a valid LoadType as per your agreement";
+                }
             }
-            return result;
         }
 
         //Requested by Finance Team & Anil - to Validate Destination country based on Agreement Rout
@@ -2303,6 +2610,7 @@ and ClientID = " + ClientID
                 result.Message = "This InvoiceNo. is not correct, Please enter a valid InvoiceNo.[WaybillNo]";
                 return result;
             }
+
             int Currency = dc.CustomerWayBills.FirstOrDefault(P => P.WayBillNo == Convert.ToInt32(_commercialInvoice.InvoiceNo) && P.StatusID == 1).CurrencyID.Value;
             double DV = dc.CustomerWayBills.FirstOrDefault(P => P.WayBillNo == Convert.ToInt32(_commercialInvoice.InvoiceNo) && P.StatusID == 1).DeclaredValue;
 
@@ -2310,6 +2618,22 @@ and ClientID = " + ClientID
             if (result.HasError)
                 return result;
 
+            try
+            {
+                InsertCommercialInvoice(_commercialInvoice, ClientInfo.ClientID);
+            }
+            catch (Exception ex)
+            {
+                result.HasError = true;
+                result.Message = "Please check the commerical invoice and push again.";
+                return result;
+            }
+
+            return result;
+        }
+
+        private void InsertCommercialInvoice(CommercialInvoice _commercialInvoice, int ClientID)
+        {
             ClientCommercialInvoice oClientCommercialInvoice = new ClientCommercialInvoice();
             oClientCommercialInvoice.RefNo = _commercialInvoice.RefNo;
             oClientCommercialInvoice.InvoiceNo = _commercialInvoice.InvoiceNo;
@@ -2325,12 +2649,28 @@ and ClientID = " + ClientID
             oClientCommercialInvoice.Phone = _commercialInvoice.Phone;
             oClientCommercialInvoice.TotalCost = System.Math.Round(_commercialInvoice.TotalCost, 2);
             oClientCommercialInvoice.CurrencyCode = _commercialInvoice.CurrencyCode;
-            oClientCommercialInvoice.ClientID = ClientInfo.ClientID;
+            oClientCommercialInvoice.ClientID = ClientID;
             oClientCommercialInvoice.InsertedOn = System.DateTime.Now;
             oClientCommercialInvoice.StatusID = 1;
 
             dc.ClientCommercialInvoices.InsertOnSubmit(oClientCommercialInvoice);
-            dc.SubmitChanges();
+
+            bool needRetryCCI = true;
+        RETRYCCI:
+            try
+            {
+                dc.SubmitChanges();
+            }
+            catch (Exception ex)
+            {
+                if (needRetryCCI)
+                {
+                    needRetryCCI = false;
+                    goto RETRYCCI;
+                }
+                // Save error log
+                LogException(ex);
+            }
 
             for (int i = 0; i < _commercialInvoice.CommercialInvoiceDetailList.Count; i++)
             {
@@ -2344,7 +2684,7 @@ and ClientID = " + ClientID
                 oClientCommercialInvoiceDetail.UnitCost = System.Math.Round(_commercialInvoice.CommercialInvoiceDetailList[i].UnitCost, 2);
                 oClientCommercialInvoiceDetail.Amount = System.Math.Round(_commercialInvoice.CommercialInvoiceDetailList[i].Quantity * _commercialInvoice.CommercialInvoiceDetailList[i].UnitCost, 2);
 
-                if (ClientInfo.ClientID == 9018737)
+                if (ClientID == 9018737)
                 {
                     if (string.IsNullOrWhiteSpace(_commercialInvoice.CommercialInvoiceDetailList[i].CustomsCommodityCode))
                         oClientCommercialInvoiceDetail.CustomsCommodityCode = "";
@@ -2365,9 +2705,23 @@ and ClientID = " + ClientID
                 oClientCommercialInvoiceDetail.StatusID = 1;
                 dc.ClientCommercialInvoiceDetails.InsertOnSubmit(oClientCommercialInvoiceDetail);
             }
-            dc.SubmitChanges();
 
-            return result;
+            bool needRetryCCID = true;
+        RETRYCCID:
+            try
+            {
+                dc.SubmitChanges();
+            }
+            catch (Exception ex)
+            {
+                if (needRetryCCID)
+                {
+                    needRetryCCID = false;
+                    goto RETRYCCID;
+                }
+                // Save error log
+                LogException(ex);
+            }
         }
 
         private Result IsCommericalInvoiceValid(CommercialInvoice _commercialInvoice, int ClientID, string DestCountrycode, double DeclareValue, int Currency)
@@ -2663,6 +3017,50 @@ and ClientID = " + ClientID
                     //    }
                     //}
 
+                    //is HS code required based on country 
+                    using (SqlConnection connection = new SqlConnection(ConfigurationManager.ConnectionStrings["DapperConnectionString"].ConnectionString))
+                    {
+                        connection.Open();
+                        string HScodeQuery = "Select 1 from CountryRequiredHScode where CountryCode = @CountryCode";
+
+                        using (SqlCommand cm = new SqlCommand(HScodeQuery, connection))
+                        {
+                            cm.Parameters.AddWithValue("@CountryCode", DestCountrycode);
+                            object sqlresult = cm.ExecuteScalar();
+                            bool hscoderequired = sqlresult != null;
+
+                            if (hscoderequired)
+                            {
+                                string excludeQuery = @"select 1 from clientexcludedhscode a inner join countryrequiredhscode b on a.countryid = b.countryid where a.clientid = @clientid and b.countrycode = @countrycode";
+
+                                using (SqlCommand cmd = new SqlCommand(excludeQuery, connection))
+                                {
+                                    cmd.Parameters.AddWithValue("@ClientID", ClientID);
+                                    cmd.Parameters.AddWithValue("@CountryCode", DestCountrycode);
+
+                                    object excluderesult = cmd.ExecuteScalar();
+                                    bool excludedClient = excluderesult != null;
+
+                                    if (!excludedClient) //for unexcluded clients
+                                    {
+                                        if ((string.IsNullOrWhiteSpace(_commercialInvoice.CommercialInvoiceDetailList[i].CustomsCommodityCode)
+                                            || (_commercialInvoice.CommercialInvoiceDetailList[i].CustomsCommodityCode.Length < 6
+                                            || _commercialInvoice.CommercialInvoiceDetailList[i].CustomsCommodityCode.Length > 12)
+                                            || !_commercialInvoice.CommercialInvoiceDetailList[i].CustomsCommodityCode.All(char.IsDigit)))
+                                        {
+                                            result.HasError = true;
+                                            result.Message = GlobalVar.GV.GVCommon.GetLocalizationMessage("ErCustomCommidityCode");
+                                            return result;
+
+                                        }
+                                    }
+                                }
+
+                            }
+
+                        }
+
+                    }
                     if (_commercialInvoice.CommercialInvoiceDetailList[i].ChineseDescription.Length > 400)
                     {
                         result.HasError = true;
@@ -2769,7 +3167,7 @@ and ClientID = " + ClientID
             //                + @" OR cClientID = " + ClientID;
             string sqlReportData = @"SELECT ClientID, Consignee, ConsigneeAddress, ConsigneeEmail, ConsigneeMobileNo, 
 ConsigneePhone, CountryofManufacture, CurrencyCode, CustomsCommodityCode, Description, 
-ID, InvoiceDate, InvoiceNo, Quantity, RefNo, SubTotal, TotalCost, UnitCost, UnitType , Incoterm,IncotermsPlaceAndNotes
+ID, FORMAT(InvoiceDate, 'M/d/yyyy') as InvoiceDate, InvoiceNo, Quantity, RefNo, SubTotal, TotalCost, UnitCost, UnitType , Incoterm,IncotermsPlaceAndNotes
 FROM dbo.ViwCommercialInvoice_API
 where WaybillNo = " + WaybillNo + @"
 AND ClientID = " + ClientID;
@@ -2971,12 +3369,19 @@ where InvoiceNo = '" + WaybillNo + "';";
             NewWaybill.DestinationStationID = GlobalVar.GV.GetStationByCity(GlobalVar.GV.GetCityIDByCityCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode, _ManifestShipmentDetails.ConsigneeInfo.CountryCode));
             //NewWaybill.DestinationStationID = Convert.ToInt32(_ManifestShipmentDetails.DestinationStationID);
 
-            if (GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode).HasValue)
-                NewWaybill.ODAStationCharge = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode).Value;
+            //if (GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode).HasValue)
+            //    NewWaybill.ODAStationCharge = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode).Value;
+            var odaStationId = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ClientInfo.ClientAddress.CityCode);
 
-            if (GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode).HasValue)
-                NewWaybill.ODADestinationID = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode).Value;
+            if (odaStationId.HasValue)
+                NewWaybill.ODAStationCharge = odaStationId.Value;
 
+            //if (GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode).HasValue)
+            //    NewWaybill.ODADestinationID = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode).Value;
+            var odaDestinationId = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetails.ConsigneeInfo.CityCode);
+
+            if (odaDestinationId.HasValue)
+                NewWaybill.ODADestinationID = odaDestinationId.Value;
             NewWaybill.PickUpDate = DateTime.Now;
             NewWaybill.PicesCount = _ManifestShipmentDetails.PicesCount;
             NewWaybill.Weight = _ManifestShipmentDetails.Weight;
@@ -3058,8 +3463,9 @@ where InvoiceNo = '" + WaybillNo + "';";
                 WritetoXML(_ManifestShipmentDetails, _ManifestShipmentDetails.ClientInfo, "Create New Waybill", EnumList.MethodType.CreateWaybill, result);
                 result.HasError = true;
                 result.Message = "an error happen when saving the waybill details code : 120";
+
                 GlobalVar.GV.AddErrorMessage(e, _ManifestShipmentDetails.ClientInfo);
-                GlobalVar.GV.AddErrorMessage1(dc.Connection.ConnectionString, _ManifestShipmentDetails.ClientInfo);
+                //GlobalVar.GV.AddErrorMessage1(dc.Connection.ConnectionString, _ManifestShipmentDetails.ClientInfo);
             }
 
             if (!result.HasError)
@@ -3546,12 +3952,12 @@ where InvoiceNo = '" + WaybillNo + "';";
                     Date = trackingRecordDT,
                     Activity = Utf8Encoder.GetString(Utf8Encoder.GetBytes(list[i].Activity)), //list[i].Activity,
                     RefNo = list[i].RefNo,
-                    ArabicActivity = Utf8Encoder.GetString(Utf8Encoder.GetBytes(list[i].ActivityAr)), //list[i].ActivityAr,
+                    ArabicActivity = Utf8Encoder.GetString(Utf8Encoder.GetBytes(list[i].ActivityAr ?? "")), //list[i].ActivityAr,
                     StationCode = list[i].StationCode,
                     WaybillNo = list[i].WaybillNo,
                     HasError = list[i].HasError,
-                    ErrorMessage = list[i].ErrorMessage,
-                    Comments = list[i].Comments,
+                    ErrorMessage = list[i].ErrorMessage ?? "",
+                    Comments = list[i].Comments ?? "",
                     ActivityCode = list[i].TrackingTypeID
                 };
 
@@ -3563,7 +3969,20 @@ where InvoiceNo = '" + WaybillNo + "';";
 
                 //list[i].EventName = list[i].EventName;
                 if (list[i].EventCode.HasValue)
+                {
                     newActivity.EventCode = list[i].EventCode.Value;
+
+                    if (newActivity.EventCode == 1)
+                    {
+                        // 9019912 - Picked up by Naqel at : RIYADH (Current one)
+                        // 9030486 Pick up from Naqel Facility for AE LM
+                        // 9030778 Pick up from Shein Facility for AE – SA road service
+                        if (newActivity.ClientID == 9030486)
+                            newActivity.Activity = "Pick up from Naqel Facility for AE LM";
+                        else if (newActivity.ClientID == 9030778)
+                            newActivity.Activity = "Pick up from Shein Facility for AE – SA road service";
+                    }
+                }
                 if (list[i].DeliveryStatusID.HasValue)
                     newActivity.DeliveryStatusID = list[i].DeliveryStatusID.Value;
                 if (list[i].DeliveryStatusID.HasValue)
@@ -3629,19 +4048,17 @@ where InvoiceNo = '" + WaybillNo + "';";
         public List<Tracking> TraceByMultiWaybillNo(ClientInformation ClientInfo, List<int> WaybillNo)
         {
             List<int> _waybillNo = new List<int>();
-            List<string> _waybillNoStr = new List<string>();
+
+            List<ViwTracking> TC = new List<ViwTracking>();
+            List<Tracking> Result = new List<Tracking>();
             foreach (int item in WaybillNo)
             {
                 if (item != 0 && IsValidWBFormat(item.ToString()))
                 {
                     _waybillNo.Add(item);
-                    _waybillNoStr.Add(item.ToString());
                 }
             }
             string WBno = string.Join(",", _waybillNo.ToArray());
-
-            List<ViwTracking> TC = new List<ViwTracking>();
-            List<Tracking> Result = new List<Tracking>();
 
             #region Data validation
             if (_waybillNo.Count() <= 0 || String.IsNullOrWhiteSpace(WBno))
@@ -3665,18 +4082,40 @@ where InvoiceNo = '" + WaybillNo + "';";
                 Result.Add(newActivity);
                 return Result;
             }
-
-            //if (ClientInfo.ClientID != 1024600 && ClientInfo.CheckClientInfo(ClientInfo, false).HasError) // removed on 25/05/2024 as requested by william
-            //{
-            //    Tracking newActivity = new Tracking
-            //    {
-            //        ErrorMessage = "The username or password for this client is wrong, please make sure to pass correct credentials",
-            //        HasError = true
-            //    };
-            //    Result.Add(newActivity);
-            //    return Result;
-            //}
+            //TODO: Confirm with Abeer about credencial validation  for 1024600
+            if (ClientInfo.ClientID != 1024600 && ClientInfo.CheckClientInfo(ClientInfo, false).HasError)
+            {
+                Tracking newActivity = new Tracking
+                {
+                    ErrorMessage = "The username or password for this client is wrong, please make sure to pass correct credentials",
+                    HasError = true
+                };
+                Result.Add(newActivity);
+                return Result;
+            }
             #endregion
+
+            Result = GetTrackingByMultiWaybillNos(ClientInfo.ClientID, WaybillNo);
+
+            GlobalVar.GV.CreateShippingAPIRequest(ClientInfo, EnumList.APIRequestType.TraceByMultiWaybillNo, string.Join(",", WaybillNo), 11);
+            return Result;
+        }
+
+        private List<Tracking> GetTrackingByMultiWaybillNos(int ClientID, List<int> WaybillNo)
+        {
+            List<ViwTracking> TC = new List<ViwTracking>();
+            List<Tracking> Result = new List<Tracking>();
+            List<string> _waybillNoStr = new List<string>();
+            List<int> _waybillNo = new List<int>();
+            foreach (int item in WaybillNo)
+            {
+                if (item != 0 && IsValidWBFormat(item.ToString()))
+                {
+                    _waybillNo.Add(item);
+                    _waybillNoStr.Add(item.ToString());
+                }
+            }
+            string WBno = string.Join(",", _waybillNo.ToArray());
 
             // Get RTO WaybillNo
             dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
@@ -3684,7 +4123,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             string WBno_RTO = "";
             string listNeedRTOTrackingClientIDs = System.Configuration.ConfigurationManager.AppSettings["TrackingWithRTO"].ToString();
             List<int> TrackingWithRTO = listNeedRTOTrackingClientIDs.Split(',').Select(Int32.Parse).ToList();
-            if (TrackingWithRTO.Contains(ClientInfo.ClientID))
+            if (TrackingWithRTO.Contains(ClientID))
             {
                 var RTOWbs = dc.Waybills.Where(P => _waybillNoStr.Contains(P.RefNo) && P.ClientID == 1024600 && P.IsCancelled == false)
                   .Select(w => w.WayBillNo).ToList();
@@ -3692,7 +4131,7 @@ where InvoiceNo = '" + WaybillNo + "';";
                 WBno_RTO = string.Join(",", RTOWbs.ToArray());
             }
 
-            if (ClientInfo.ClientID == 1024600)
+            if (ClientID == 1024600)
             {
                 WBno_RTO = WBno;
             }
@@ -3701,7 +4140,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             List<int> TrackingWithTZ = listTZ.Split(',').Select(Int32.Parse).ToList();
             bool IsNeedTZ = false;
 
-            if (TrackingWithTZ.Contains(ClientInfo.ClientID))
+            if (TrackingWithTZ.Contains(ClientID))
                 IsNeedTZ = true;
 
             string con = GetTrackingConnStr();
@@ -3739,7 +4178,7 @@ where InvoiceNo = '" + WaybillNo + "';";
 
             using (var db = new SqlConnection(con))
             {
-                string tempClientIDs = GetCrossTrackingClientIDs(ClientInfo.ClientID);
+                string tempClientIDs = GetCrossTrackingClientIDs(ClientID);
                 string sql = @"
                 select ClientID, WaybillNo, Date, StationCode, EventCode, Activity, ActivityAr, 
                 HasError, ErrorMessage, Comments, RefNo, TrackingTypeID, DeliveryStatusID, DeliveryStatusMessage
@@ -3777,7 +4216,7 @@ where InvoiceNo = '" + WaybillNo + "';";
                 + @"
                 Order by WaybillNo, Date";
 
-                if (ClientInfo.ClientID == 1024600)
+                if (ClientID == 1024600)
                 {
                     sql = sql_RTO;
                 }
@@ -3797,16 +4236,16 @@ where InvoiceNo = '" + WaybillNo + "';";
                 var OriginalWB = OriginalWBs.Where(p => p.WayBillNo == TC[i].WaybillNo).FirstOrDefault();
                 Tracking newActivity = new Tracking
                 {
-                    ClientID = TC[i].ClientID ?? ClientInfo.ClientID,
+                    ClientID = TC[i].ClientID ?? ClientID,
                     Date = trackingRecordDT,
-                    Activity = Utf8Encoder.GetString(Utf8Encoder.GetBytes(TC[i].Activity)),
+                    Activity = TC[i].Activity == null ? "" : Utf8Encoder.GetString(Utf8Encoder.GetBytes(TC[i].Activity)),
                     RefNo = TC[i].RefNo,
-                    ArabicActivity = Utf8Encoder.GetString(Utf8Encoder.GetBytes(TC[i].ActivityAr)),
+                    ArabicActivity = TC[i].ActivityAr == null ? "" : Utf8Encoder.GetString(Utf8Encoder.GetBytes(TC[i].ActivityAr)),
                     StationCode = TC[i].StationCode,
                     WaybillNo = TC[i].WaybillNo,
                     HasError = TC[i].HasError,
-                    ErrorMessage = TC[i].ErrorMessage,
-                    Comments = TC[i].Comments,
+                    ErrorMessage = TC[i].ErrorMessage ?? "",
+                    Comments = TC[i].Comments ?? "",
                     ActivityCode = TC[i].TrackingTypeID
                 };
 
@@ -3817,7 +4256,20 @@ where InvoiceNo = '" + WaybillNo + "';";
                 }
 
                 if (TC[i].EventCode.HasValue)
+                {
                     newActivity.EventCode = TC[i].EventCode.Value;
+
+                    if (newActivity.EventCode == 1)
+                    {
+                        // 9019912 - Picked up by Naqel at : RIYADH (Current one)
+                        // 9030486 Pick up from Naqel Facility for AE LM
+                        // 9030778 Pick up from Shein Facility for AE – SA road service
+                        if (newActivity.ClientID == 9030486)
+                            newActivity.Activity = "Pick up from Naqel Facility for AE LM";
+                        else if (newActivity.ClientID == 9030778)
+                            newActivity.Activity = "Pick up from Shein Facility for AE – SA road service";
+                    }
+                }
                 //TC[i].EventName = TC[i].EventName;
 
                 //if (TC[i].EventCode.HasValue && (TC[i].EventCode == 0 || TC[i].EventCode == 27))
@@ -3837,7 +4289,7 @@ where InvoiceNo = '" + WaybillNo + "';";
                     continue;
 
                 // Change the RTO ClientID, WaybillNo, RefNo
-                if (newActivity.ClientID.ToString() == "1024600" && ClientInfo.ClientID != 1024600)
+                if (newActivity.ClientID.ToString() == "1024600" && ClientID != 1024600)
                 {
                     var OriginWaybillInfo = OriginalWBs.Where(w => w.WayBillNo.ToString() == TC[i].RefNo).FirstOrDefault();
 
@@ -3879,7 +4331,6 @@ where InvoiceNo = '" + WaybillNo + "';";
 
             Result = Result.OrderBy(r => r.Date).OrderBy(r => r.WaybillNo).ToList();
 
-            GlobalVar.GV.CreateShippingAPIRequest(ClientInfo, EnumList.APIRequestType.TraceByMultiWaybillNo, string.Join(",", WaybillNo), 11);
             return Result;
         }
 
@@ -4229,14 +4680,128 @@ where InvoiceNo = '" + WaybillNo + "';";
             if (!result.HasError)
             {
                 ManifestShipmentDetails.WaybillNo = WaybillNo;
+                int request_load_type = ManifestShipmentDetails.LoadTypeID;
                 this.WaybillNo = WaybillNo;
+                string _fexdexAcc = System.Configuration.ConfigurationManager.AppSettings["FedexAccount"].ToString();
+                List<int> _fexdexAcclist = _fexdexAcc.Split(',').Select(Int32.Parse).ToList();
+
+                string inbound_loadtype = System.Configuration.ConfigurationManager.AppSettings["FedexInboundLoadType"].ToString();
+                List<int> _inbound_loadtype = inbound_loadtype.Split(',').Select(Int32.Parse).ToList();
+                string outbound_loadtype = System.Configuration.ConfigurationManager.AppSettings["FedexOutboundLoadType"].ToString();
+                List<int> _outbound_loadtype = outbound_loadtype.Split(',').Select(Int32.Parse).ToList();
+                // only allowed for Fedex
+                if (_fexdexAcclist.Contains(ManifestShipmentDetails.ClientInfo.ClientID))
+
+                {
+
+
+                    //based on load type if inbound then refno is mandatory elif outbound ref1 will be mandatory
+                    // add validation to check Reference1 against fedex account
+                    //chck the piece count = count of itempiecelist
+                    if (_inbound_loadtype.Contains(ManifestShipmentDetails.LoadTypeID))
+                    {
+                        if (string.IsNullOrEmpty(ManifestShipmentDetails.RefNo))
+                        {
+
+                            result.HasError = true;
+                            result.Message = "Please Pass RefNo for inbound request";
+                            return result;
+                        }
+                        bool isCountMatching = ManifestShipmentDetails.Itempieceslist.Count == ManifestShipmentDetails.PicesCount;
+                        if (isCountMatching)
+                        {
+                            foreach (var item in ManifestShipmentDetails.Itempieceslist)
+                            {
+                                if (string.IsNullOrEmpty(item.PieceBarcode))
+                                {
+                                    isCountMatching = true;
+                                    result.HasError = isCountMatching;
+                                    result.Message = "Please Pass Piece Barcode same as of piece count";
+                                    return result;  // If any PieceBarcode is empty, return false
+                                }
+                            }
+                            ManifestShipmentDetails._CommercialInvoice.RefNo = "FedexRefno";
+                        }
+                        else
+                        {
+                            result.HasError = true;
+                            result.Message = "Please Pass PieceBarCode for all Piece Item";
+                            return result;
+                        }
+                    }
+
+                    else if (_outbound_loadtype.Contains(ManifestShipmentDetails.LoadTypeID))
+                    {
+                        if (string.IsNullOrEmpty(ManifestShipmentDetails.Reference1))
+                        {
+
+                            result.HasError = true;
+                            result.Message = "Please Pass Reference1 for outbound request";
+                            return result;
+                        }
+
+                        //only for outbound
+                        ManifestShipmentDetails.CreateBooking = true;
+                        ManifestShipmentDetails._CommercialInvoice.RefNo = "FedexInvoice";
+                    }
+                    //if (ManifestShipmentDetails.Weight > 250)
+                    //{
+                    //    ManifestShipmentDetails.LoadTypeID = 7;
+                    //}
+                    //else if (ManifestShipmentDetails.Weight >= 10 && ManifestShipmentDetails.Weight <= 250)
+                    //{
+                    //    ManifestShipmentDetails.LoadTypeID = 39;
+                    //}
+
+
+                }
+
+
                 result = CreateWaybill(ManifestShipmentDetails);
+                if (result.HasError == false && Convert.ToString(result.WaybillNo) != null && result.WaybillNo > 0)
+                {
+                    if (_fexdexAcclist.Contains(ManifestShipmentDetails.ClientInfo.ClientID))
+                    {
+                        if (_inbound_loadtype.Contains(request_load_type))
+                            result.HasError = UpdateCustomerBarCode(ManifestShipmentDetails);
+                    }
+                }
             }
             else
                 WritetoXML(ManifestShipmentDetails, ManifestShipmentDetails.ClientInfo, WaybillNo.ToString(), EnumList.MethodType.UpdateWaybill, result);
 
             return result;
         }
+
+
+        [WebMethod(Description = "You can use this function to create ASR waybill with given WaybillNo.")]
+        public Result UpdateWaybillForASR(AsrManifestShipmentDetails _asrManifestShipmentDetails)
+        {
+            Result result = new Result();
+            int waybillno = _asrManifestShipmentDetails.WaybillNo;
+
+            WritetoXMLUpdateWaybill(_asrManifestShipmentDetails, _asrManifestShipmentDetails.ClientInfo, waybillno.ToString(), EnumList.MethodType.UpdateWaybillForASR);
+
+            result = _asrManifestShipmentDetails.ClientInfo.CheckClientInfo(_asrManifestShipmentDetails.ClientInfo, false);
+            if (result.HasError)
+            {
+                WritetoXML(_asrManifestShipmentDetails, _asrManifestShipmentDetails.ClientInfo, _asrManifestShipmentDetails.RefNo, EnumList.MethodType.UpdateWaybillForASR, result);
+                return result;
+            }
+
+            result = CheckBeforeUpdateASRWaybill(_asrManifestShipmentDetails, waybillno);
+            if (!result.HasError)
+            {
+                _asrManifestShipmentDetails.WaybillNo = waybillno;
+                // this.WaybillNo = WaybillNo;
+                result = CreateWaybillForASR(_asrManifestShipmentDetails);
+            }
+            else
+                WritetoXML(_asrManifestShipmentDetails, _asrManifestShipmentDetails.ClientInfo, waybillno.ToString(), EnumList.MethodType.UpdateWaybillForASR, result);
+
+            return result;
+        }
+
 
         private Result CheckBeforeUpdateWaybill(ManifestShipmentDetails _ManifestShipmentDetails, int WaybillNo)
         {
@@ -4346,6 +4911,116 @@ where InvoiceNo = '" + WaybillNo + "';";
 
             return result;
         }
+
+        private Result CheckBeforeUpdateASRWaybill(AsrManifestShipmentDetails _asrManifestShipmentDetails, int WaybillNo)
+        {
+            string con = ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+            Result result = new Result();
+
+            //dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
+            //dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
+
+            //Check if the Waybill No is belonge to a ragne for the same client.
+            //if (dcMaster.APIClientWaybillRanges.Where(P => P.ClientID == _ManifestShipmentDetails.ClientInfo.ClientID &&
+            //                                         P.StatusID == 1 &&
+            //                                         P.FromWaybillNo <= WaybillNo &&
+            //                                         P.ToWaybillNo >= WaybillNo).Count() <= 0)
+            //{
+            //    result.HasError = true;
+            //    result.Message = GlobalVar.GV.GetLocalizationMessage("ErWebServiceWaybillPassWrongWaybill");
+            //    return result;
+            //}
+
+            //Check if waybill no already pass to the API Before.
+            //if (dc.CustomerWayBills.Where(P => P.WayBillNo == WaybillNo && P.StatusID == 1).Count() > 0)
+            //{
+            //    result.HasError = true;
+            //    result.Message = GlobalVar.GV.GetLocalizationMessage("ErWebServiceWaybillAlreadyExists");
+            //    return result;
+            //}
+
+
+            //////////////////////////////////// NEW ////////////////////////////////////////
+            using (SqlConnection connection = new SqlConnection(con))
+            {
+                connection.Open();
+
+                using (SqlCommand command = new SqlCommand("select * from APIClientWaybillRange where ClientID = " + _asrManifestShipmentDetails.ClientInfo.ClientID + " AND FromWaybillNo <= " + WaybillNo +
+                    " AND ToWaybillNo >= " + WaybillNo + "AND StatusID = 1 ", connection))
+                {
+                    //Logger.Info(command.CommandText);
+                    command.CommandTimeout = 0;
+
+                    try
+                    {
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (!reader.HasRows)
+                            {
+                                result.HasError = true;
+                                result.Message = GlobalVar.GV.GetLocalizationMessage("ErWebServiceWaybillPassWrongWaybill");
+                                return result;
+                            }
+                        }
+                        connection.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogException(ex);
+                        connection.Close();
+                    }
+                }
+            }
+
+            ////////////////////////////////////////////// NEW //////////////////////////////
+            using (SqlConnection connection = new SqlConnection(con))
+            {
+                connection.Open();
+
+                using (SqlCommand command = new SqlCommand("select * from CustomerWayBills where WaybillNo = " + WaybillNo +
+                    " AND StatusID = 1 ", connection))
+                {
+                    //Logger.Info(command.CommandText);
+                    command.CommandTimeout = 0;
+
+                    try
+                    {
+                        using (SqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.HasRows)
+                            {
+                                result.HasError = true;
+                                result.Message = GlobalVar.GV.GetLocalizationMessage("ErWebServiceWaybillAlreadyExists");
+                                return result;
+                            }
+                        }
+                        connection.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        LogException(ex);
+                        connection.Close();
+                    }
+                }
+            }
+            ///////////////////////////////////////////////////////////////////////////////
+
+            ////Dapper connection to check WB availability
+            //using (IDbConnection db = new SqlConnection(sqlCon))
+            //{
+            //    string str = "select WaybillNo from CustomerWayBills where WaybillNo = " + WaybillNo + " and StatusID = 1";
+            //    var WBNo = db.Query<CustomerWayBill>(str).FirstOrDefault();
+            //    if (WBNo.WayBillNo > 0)
+            //    {
+            //        result.HasError = true;
+            //        result.Message = GlobalVar.GV.GetLocalizationMessage("ErWebServiceWaybillAlreadyExists");
+            //        return result;
+            //    }
+            //}
+
+            return result;
+        }
+
         #endregion
         [WebMethod(Description = "You can use this function to get the active range and the ranges which still some waybill not used in that range.")]
         public List<WaybillRange> GetActiveRanges(ClientInformation ClientInfo)
@@ -4375,6 +5050,8 @@ where InvoiceNo = '" + WaybillNo + "';";
         [WebMethod(Description = "You can use this function to get the active range..")]
         public List<WaybillRange> GetRangesByClientId(int _clientId)
         {
+            AddAPIError(_clientId, "GetRange");
+
             List<WaybillRange> result = new List<WaybillRange>();
             dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
             dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
@@ -4416,10 +5093,14 @@ where InvoiceNo = '" + WaybillNo + "';";
             try
             {
                 string filePath = Server.MapPath(".") + "\\ErrorData\\" + DateTime.Now.ToString("yyyy-MM-dd") + "\\" + _ClientInfo.ClientID.ToString() + "\\";
-                string fileName = filePath + _ClientInfo.ClientID.ToString() + "_" + methodType.ToString() + "_" + reference + "_" + DateTime.Now.ToFileTimeUtc() + ".xml";
+                Directory.CreateDirectory(filePath);
+                string safeReference = Regex.Replace(reference ?? "", @"[^\w-]", "");
+                if (string.IsNullOrWhiteSpace(safeReference))
+                    safeReference = "NoRef_" + Guid.NewGuid().ToString("N").Substring(0, 4);
+                string fileName = filePath + _ClientInfo.ClientID.ToString() + "_" + methodType.ToString() + "_" + safeReference + "_" + DateTime.Now.ToFileTimeUtc() + ".xml";
                 //System.IO.File.Create(fileName);
 
-                Directory.CreateDirectory(filePath);
+                
 
                 FileStream fs = new FileStream(fileName, FileMode.OpenOrCreate);
                 StreamWriter str = new StreamWriter(fs);
@@ -4457,10 +5138,19 @@ where InvoiceNo = '" + WaybillNo + "';";
         {
             try
             {
-                string filePath = Server.MapPath(".") + "\\UpdateWaybillData\\" + DateTime.Now.ToString("yyyy-MM-dd") + "\\" + _ClientInfo.ClientID.ToString() + "\\";
-                string fileName = filePath + _ClientInfo.ClientID.ToString() + "_" + methodType.ToString() + "_" + reference + "_" + DateTime.Now.ToFileTimeUtc() + ".xml";
+                string pattern = @"[^\w-]"; // Keep letters, numbers, underscores, and hyphens
+                string resultRefNo = Regex.Replace(reference, pattern, "");
 
+                string filePath = Server.MapPath(".") + "\\UpdateWaybillData\\" + DateTime.Now.ToString("yyyy-MM-dd") + "\\" + _ClientInfo.ClientID.ToString() + "\\";
                 Directory.CreateDirectory(filePath);
+                
+
+                if (string.IsNullOrWhiteSpace(resultRefNo))
+                    resultRefNo = "NoRef_" + Guid.NewGuid().ToString("N").Substring(0, 4);
+
+                string fileName = filePath + _ClientInfo.ClientID.ToString() + "_" + methodType.ToString() + "_" + resultRefNo + "_" + DateTime.Now.ToFileTimeUtc() + ".xml";
+
+                
 
                 FileStream fs = new FileStream(fileName, FileMode.OpenOrCreate);
                 StreamWriter str = new StreamWriter(fs);
@@ -4561,6 +5251,9 @@ where InvoiceNo = '" + WaybillNo + "';";
                 return result;
             }
 
+            string pattern = @"[^\w-]"; // Keep letters, numbers, underscores, and hyphens
+            string resultRefNo = Regex.Replace(logOrderData.RefNo, pattern, "");
+
             List<RequestFileData> fileResult = new List<RequestFileData>();
             List<FileInfo> fileInfos = new List<FileInfo>() { };
 
@@ -4568,7 +5261,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             {
                 string filePathCurrentDay = Server.MapPath(".") + "\\UpdateWaybillData\\" + ((DateTime)logOrderData.ManifestedTime).ToString("yyyy-MM-dd") + "\\" + logOrderData.ClientID.ToString() + "\\";
                 string filePathPreviousDay = Server.MapPath(".") + "\\UpdateWaybillData\\" + ((DateTime)logOrderData.ManifestedTime).AddDays(-1).ToString("yyyy-MM-dd") + "\\" + logOrderData.ClientID.ToString() + "\\";
-                string fileName = logOrderData.ClientID.ToString() + "_CreateWaybill*_" + logOrderData.RefNo + "_*.xml";
+                string fileName = logOrderData.ClientID.ToString() + "_CreateWaybill*_" + resultRefNo + "_*.xml";
                 if (Method == RequestType.UpdateWaybill)
                     fileName = logOrderData.ClientID.ToString() + "_UpdateWaybill_" + logOrderData.WaybillNo.ToString() + "_*.xml";
 
@@ -4748,6 +5441,8 @@ where InvoiceNo = '" + WaybillNo + "';";
         [WebMethod(Description = "You can use this function to create Return Waybill by using existing waybill no data.")]
         public RTOData CreateRTOWaybill(ClientInformation _ClientInfo, int WaybillNo)
         {
+            AddAPIError(_ClientInfo.ClientID, "CrtRTOWB");
+
             RTOData returnRTO = new RTOData();
             Result result = new Result();
             dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
@@ -4997,8 +5692,10 @@ where InvoiceNo = '" + WaybillNo + "';";
             FourMSixthInchesFragile = 5,
             DunyanaLabel4x4 = 6,
             ExpressLabel4x6Inches = 7,
+            FourMSixthInchesZPL=8,
             A4
         }
+
 
         public class BarcodeDetail
         {
@@ -5061,6 +5758,18 @@ where InvoiceNo = '" + WaybillNo + "';";
             List<rpCustomerBarCodeExpress> BarCodeObjExp = StickerConnectionForExpress(ClientInfo, WaybillNoList);
             dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
 
+            if (BarCodeObj[0].ConsigneeCountryName.Trim().ToLower() == "egypt")
+            {
+                if (StickerSize != XMLShippingService.StickerSize.FourMSixthInches)
+                    return "";
+
+                InfoTrack.NaqelAPI.Report.rpCustomerLabel4x6_EG QRreport = new Report.rpCustomerLabel4x6_EG();
+                QRreport.DataSource = BarCodeObj;
+                QRreport.CreateDocument();
+                QRreport.ExportToPdf(fileName);
+                return fileName;
+            }
+
             //else if (ClientInfo.ClientID == 9020077)
             //{
             //    InfoTrack.NaqelAPI.Report.rpCustomerLabelA4Test QRreport = new Report.rpCustomerLabelA4Test();
@@ -5092,10 +5801,6 @@ where InvoiceNo = '" + WaybillNo + "';";
 
                 string StickerNophone = System.Configuration.ConfigurationManager.AppSettings["Sticker_NoPhoneNo"].ToString();
                 List<int> StickerNophoneList = StickerNophone.Split(',').Select(Int32.Parse).ToList();
-
-
-
-
 
 
                 ////QR clients webcongfig
@@ -5206,12 +5911,22 @@ where InvoiceNo = '" + WaybillNo + "';";
             }
             else if (StickerSize == XMLShippingService.StickerSize.FourMEightInches)
             {
+                string BirkenstockClientID = System.Configuration.ConfigurationManager.AppSettings["BirkenstockCLientID_SameDay_Delivery"].ToString();
+                List<int> BirkenstockClientIDList = BirkenstockClientID.Split(',').Select(Int32.Parse).ToList();
+
                 string StickerNophone = System.Configuration.ConfigurationManager.AppSettings["Sticker_NoPhoneNo"].ToString();
                 List<int> StickerNophoneList = StickerNophone.Split(',').Select(Int32.Parse).ToList();
 
                 if (StickerNophoneList.Contains(ClientInfo.ClientID) && StickerSize == XMLShippingService.StickerSize.FourMEightInches)
                 {
                     InfoTrack.NaqelAPI.Report.rpCustomerLabel4x8NoPhone QRreport = new Report.rpCustomerLabel4x8NoPhone();
+                    QRreport.DataSource = BarCodeObj;
+                    QRreport.CreateDocument();
+                    QRreport.ExportToPdf(fileName);
+                }
+                else if (BirkenstockClientIDList.Contains(ClientInfo.ClientID) && BarCodeObj[0].Reference1 == "Express")
+                {
+                    InfoTrack.NaqelAPI.Report.rpCustomerLabel4x6BySameDay QRreport = new Report.rpCustomerLabel4x6BySameDay();
                     QRreport.DataSource = BarCodeObj;
                     QRreport.CreateDocument();
                     QRreport.ExportToPdf(fileName);
@@ -5237,6 +5952,86 @@ where InvoiceNo = '" + WaybillNo + "';";
                 report.DataSource = BarCodeObj;
                 report.CreateDocument();
                 report.ExportToPdf(fileName);
+            }
+            else if (StickerSize == XMLShippingService.StickerSize.FourMSixthInchesZPL)
+            {
+                string list1 = System.Configuration.ConfigurationManager.AppSettings["ClientIDWithQR"].ToString();
+                List<int> ClientValidation = list1.Split(',').Select(Int32.Parse).ToList();
+
+                string list2 = System.Configuration.ConfigurationManager.AppSettings["ShippingByAir"].ToString();
+                List<int> ClientList2 = list2.Split(',').Select(Int32.Parse).ToList();
+
+                string list3 = System.Configuration.ConfigurationManager.AppSettings["ShippingByRoad"].ToString();
+                List<int> ClientList3 = list3.Split(',').Select(Int32.Parse).ToList();
+
+                string loadtypeB2B = System.Configuration.ConfigurationManager.AppSettings["B2BLoadtypeIDs"].ToString();
+                List<int> b2BLoadtypes = loadtypeB2B.Split(',').Select(Int32.Parse).ToList();
+
+                string StickerNophone = System.Configuration.ConfigurationManager.AppSettings["Sticker_NoPhoneNo"].ToString();
+                List<int> StickerNophoneList = StickerNophone.Split(',').Select(Int32.Parse).ToList();
+
+                XtraReport report = null;
+                string fileNameBase = Server.MapPath(".") + "\\WaybillStickers\\" + ClientInfo.ClientID + "_" + DateTime.Now.ToFileTimeUtc();
+                ////QR clients webcongfig
+                if (StickerNophoneList.Contains(ClientInfo.ClientID))
+                {
+                    report = new Report.rpCustomerLabel4x6NoPhone();
+            
+                }
+                else if (BarCodeObj[0].LoadTypeID == 34
+                    && (
+                        (BarCodeObj[0].ClientCountryName == "UNITED ARAB EMIRATES" && BarCodeObj[0].ConsigneeCountryName == "Saudi Arabia")
+                        || (BarCodeObj[0].ClientCountryName == "Saudi Arabia" && BarCodeObj[0].ConsigneeCountryName == "UNITED ARAB EMIRATES")
+                    ))
+                {
+                    report = new Report.rpCustomerLabel4x6ByAir();
+              
+                }
+                else if (ClientList3.Contains(ClientInfo.ClientID) || (BarCodeObj[0].LoadTypeID) == 65) //add webconfig(road)
+                {
+                    report = new Report.rpCustomerLabel4x6ByRoad();
+           
+                }
+                else if (b2BLoadtypes.Contains(BarCodeObj[0].LoadTypeID))
+                {
+                    report = new Report.B2B_rpCustomerLabel4x6();
+                    
+                }
+                else if (StickerNophoneList.Contains(ClientInfo.ClientID))
+                {
+                    report = new Report.rpCustomerLabel4x6NoPhone();
+                    
+                }
+                else
+                {
+                    report = new Report.rpCustomerLabel4x6();
+                    
+                }
+                // Assign the data source
+                report.DataSource = BarCodeObj;
+                report.CreateDocument();
+                // Export to image (PNG), then convert to ZPL
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    report.ExportOptions.Image.ExportMode = DevExpress.XtraPrinting.ImageExportMode.SingleFilePageByPage;
+                    report.ExportOptions.Image.Resolution = 203;
+                    report.ExportOptions.Image.Format = System.Drawing.Imaging.ImageFormat.Png;
+
+                    report.ExportToImage(ms);
+                    ms.Seek(0, SeekOrigin.Begin);
+
+                    using (Bitmap image = new Bitmap(ms))
+                    {
+                        string zplResult = "^XA" + Image2ZPL.Convert.BitmapToZPLII(image, 0, 0) + "^XZ";
+
+                        // Write ZPL to file
+                        var zplFileName = fileNameBase + ".zpl";
+                        File.WriteAllText(zplFileName, zplResult, Encoding.UTF8);
+                        fileName = zplFileName;
+                    }
+                }
+
+
             }
             else if (BarCodeObj[0].LoadTypeID == 34
                 && (
@@ -5283,7 +6078,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             string sqlReportData = @"
             SELECT ID, LoadTypeID, WaybillNo, DeclaredValue, CurrencyID as DeclareValueCurrency, ExchangeRate,
                 PicesCount, Weight, Width, Length, Height, VolumeWeight, PickUpDate, -- OriginStationID, DestinationStationID,
-                DeliveryInstruction, CODCharge, InsuredValue, RefNo, -- Reference1, Reference2, 
+                DeliveryInstruction, CODCharge, InsuredValue, RefNo, Reference1,-- Reference2, 
                 BarCode, CustomerPieceBarCode, 
                 ServiceTypeID, BatchNo, PODType, PODTypeID, 
                 ClientContactID, ProductCode, IsCOD, ConsigneeID,
@@ -5615,15 +6410,19 @@ where InvoiceNo = '" + WaybillNo + "';";
             return BarCodeObj;
         }
 
-        public double GetDVLimit(int CurrencyID = 0)
+        public double GetDVLimit(int CurrencyID = 0, int loadTypeID = 0)
         {
             double DVLimit = 0;
+
+            string list1 = System.Configuration.ConfigurationManager.AppSettings["DocumentLoadTypeIDs"].ToString();
+            var documentLoadTypes = list1.Split(',').Select(Int32.Parse).ToList();
+            var columnName = documentLoadTypes.Contains(loadTypeID) ? "DocumentLimitValue" : "LimitValue";
 
             if (CurrencyID > 0)
             {
                 using (SqlConnection connection = new SqlConnection(sqlCon))
                 {
-                    string sqlCurrency = @"select LimitValue from DVMinLimit where currencyID=" + CurrencyID;
+                    string sqlCurrency = @"select " + columnName + " from DVMinLimit with(nolock) where currencyID = " + CurrencyID;
                     DVLimit = connection.Query<double>(sqlCurrency).First();
                     return DVLimit;
                 }
@@ -5679,6 +6478,8 @@ where InvoiceNo = '" + WaybillNo + "';";
         [WebMethod(Description = "You can use this function to Get tracking events for your shipments..")]
         public List<TrackingDetails> SendTrackingStatus(ClientTrackingDetails _clientTrackingDetails)
         {
+            AddAPIError(_clientTrackingDetails.ClientInfo.ClientID, "GetSTS");
+
             Result result = new Result();
             result = _clientTrackingDetails.ClientInfo.CheckClientInfo(_clientTrackingDetails.ClientInfo, false);
             List<TrackingDetails> TrackingObj = new List<TrackingDetails>();
@@ -5733,6 +6534,8 @@ where InvoiceNo = '" + WaybillNo + "';";
         [WebMethod(Description = "You can use this function to Get Last tracking event for 100 shipment..")]
         public List<PODTrackingStatus> GetPODStatus(ClientInformation _clientInfo, List<int> WaybillNoList)
         {
+            AddAPIError(_clientInfo.ClientID, "GetPOD");
+
             dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
             dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
 
@@ -5793,57 +6596,86 @@ where InvoiceNo = '" + WaybillNo + "';";
         [WebMethod(Description = "You can use this function to Get Last tracking event and Event code for 100 shipment..")]
         public List<LastEventTrackingStatus> LastEventCode(ClientInformation _clientInfo, List<int> WaybillNoList)
         {
+            AddAPIError(_clientInfo.ClientID, "GetLEC");
+
             dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
             dcMaster = new MastersDataContext(GlobalVar.GV.GetInfoTrackConnection());
-
             List<LastEventTrackingStatus> Listresult = new List<LastEventTrackingStatus>();
 
-            if (!_clientInfo.CheckClientInfo(_clientInfo, false).HasError)
+            #region Basic validation
+            LastEventTrackingStatus _PODobj = new LastEventTrackingStatus()
             {
-                if (WaybillNoList.Count <= 100)
-                {
-                    foreach (var obj in WaybillNoList)
-                    {
-                        LastEventTrackingStatus _PODobj = new LastEventTrackingStatus();
-                        if (dcMaster.ViwTrackings.Where(P => P.WaybillNo == Convert.ToInt32(obj) && P.IsInternalType == false && P.Date <= DateTime.Now).Count() > 0)
-                        {
-                            var instance = dcMaster.ViwTrackings.Where(P => P.WaybillNo == Convert.ToInt32(obj) && P.IsInternalType == false && P.Date <= DateTime.Now).OrderByDescending(x => x.ID).First();
-                            _PODobj.WaybillNo = instance.WaybillNo;
-                            _PODobj.Date = instance.Date;
-                            _PODobj.EventCode = Convert.ToInt32(instance.EventCode);
-                            _PODobj.Activity = instance.Activity;
-                            _PODobj.ArActivity = instance.ActivityAr;
-                            Listresult.Add(_PODobj);
-                        }
-                        else
-                        {
-                            _PODobj.WaybillNo = Convert.ToInt32(obj);
-                            _PODobj.Date = DateTime.Now;
-                            _PODobj.Activity = "This Waybill does not have a pick-up status or did not arrived at destination";
-                            _PODobj.ArActivity = "This Waybill does not have a pick-up status or did not arrived at destination";
-                            Listresult.Add(_PODobj);
-                        }
-                    }
+                HasError = true,
+                Date = DateTime.Now
+            };
 
-                }
-                else
+            if (WaybillNoList.Count > 100 || WaybillNoList.Count == 0)
+            {
+                _PODobj.ErrorMessage = "You can track maximum 100 WayBills in a call";
+                Listresult.Add(_PODobj);
+                return Listresult;
+            }
+
+            foreach (int item in WaybillNoList)
+            {
+                if (!IsValidWBFormat(item.ToString()))
                 {
-                    LastEventTrackingStatus _PODobj = new LastEventTrackingStatus();
-                    _PODobj.HasError = true;
-                    _PODobj.ErrorMessage = "You can track maximum 100 WayBills in a call";
-                    _PODobj.Date = DateTime.Now;
+                    _PODobj.ErrorMessage = "Invalid WaybillNo: " + item;
                     Listresult.Add(_PODobj);
                     return Listresult;
                 }
             }
-            else
-            {
-                LastEventTrackingStatus _PODobj = new LastEventTrackingStatus();
 
-                _PODobj.HasError = true;
+            if (_clientInfo.CheckClientInfo(_clientInfo, false).HasError)
+            {
                 _PODobj.ErrorMessage = "Your client Information is not correct..";
                 Listresult.Add(_PODobj);
                 return Listresult;
+            }
+
+            // Check waybills belong to this client
+            var tempDistinctClientIDs = dc.CustomerWayBills.Where(w => WaybillNoList.Contains(w.WayBillNo) && w.StatusID != 3)
+                .Select(w => w.ClientID)
+                .Distinct()
+                .ToList();
+            string tempClientIDs = GetCrossTrackingClientIDs(_clientInfo.ClientID);
+            foreach(var c in tempDistinctClientIDs)
+            {
+                if (!tempClientIDs.Contains(c.ToString()))
+                {
+                    _PODobj.ErrorMessage = "Some WaybillNos not belongs to your account, please update and try again";
+                    Listresult.Add(_PODobj);
+                    return Listresult;
+                }
+            }
+            #endregion
+
+            foreach (var obj in WaybillNoList)
+            {
+                LastEventTrackingStatus temp = new LastEventTrackingStatus()
+                {
+                    WaybillNo = Convert.ToInt32(obj),
+                    Date = DateTime.Now,
+                    Activity = "This Waybill does not have a pick-up status or did not arrived at destination",
+                    ArActivity = "This Waybill does not have a pick-up status or did not arrived at destination"
+                };
+
+                var instances = dcMaster.ViwTrackings
+                    .Where(P => P.WaybillNo == Convert.ToInt32(obj)
+                        && P.IsInternalType == false
+                        && P.Date <= DateTime.Now)
+                    .ToList();
+
+                if (instances.Any())
+                {
+                    var instance = instances.OrderByDescending(x => x.Date).First();
+                    temp.Date = instance.Date;
+                    temp.EventCode = Convert.ToInt32(instance.EventCode);
+                    temp.Activity = instance.Activity;
+                    temp.ArActivity = instance.ActivityAr;
+                }
+
+                Listresult.Add(temp);
             }
 
             GlobalVar.GV.CreateShippingAPIRequest(_clientInfo, EnumList.APIRequestType.MultiWayBillTrackingAllStaus, WaybillNo.ToString(), null);
@@ -6124,6 +6956,76 @@ where InvoiceNo = '" + WaybillNo + "';";
             }
         }
 
+        [WebMethod(Description = " You can use this function to Trace your RefNo status")]
+        public List<Tracking> TraceByMultiRefNoAlt(ClientInformation ClientInfo, List<string> RefNo)
+        {
+            List<string> _refNos = new List<string>();
+
+            List<ViwTracking> TC = new List<ViwTracking>();
+            List<Tracking> Result = new List<Tracking>();
+            foreach (string item in RefNo)
+            {
+                if (!string.IsNullOrEmpty(item.Trim()) && !item.Contains(";"))
+                {
+                    _refNos.Add(item.Trim());
+                }
+            }
+            string refNos = string.Join(",", _refNos.ToArray());
+
+            #region Data validation
+            if (_refNos.Count() <= 0 || String.IsNullOrWhiteSpace(refNos))
+            {
+                Tracking newActivity = new Tracking
+                {
+                    ErrorMessage = "Please provide a valid list of RefNo",
+                    HasError = true
+                };
+                Result.Add(newActivity);
+                return Result;
+            }
+
+            if (RefNo.Count > 50)
+            {
+                Tracking newActivity = new Tracking
+                {
+                    ErrorMessage = "You can track maximum 50 WayBill in a call",
+                    HasError = true
+                };
+                Result.Add(newActivity);
+                return Result;
+            }
+
+            if (ClientInfo.ClientID != 1024600 && ClientInfo.CheckClientInfo(ClientInfo, false).HasError)
+            {
+                Tracking newActivity = new Tracking
+                {
+                    ErrorMessage = "The username or password for this client is wrong, please make sure to pass correct credentials",
+                    HasError = true
+                };
+                Result.Add(newActivity);
+                return Result;
+            }
+            #endregion
+
+            dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
+            var clientIDs = GetCrossTrackingClientIDs(ClientInfo.ClientID).Split(',').ToList();
+            var WaybillNo = dc.CustomerWayBills.Where(x => clientIDs.Contains(x.ClientID.ToString()) && _refNos.Contains(x.RefNo)).Select(x => x.WayBillNo).ToList();
+            if (WaybillNo.Count == 0)
+            {
+                Tracking newActivity = new Tracking
+                {
+                    ErrorMessage = "Please provide a valid list of RefNo",
+                    HasError = true
+                };
+                Result.Add(newActivity);
+                return Result;
+            }
+            Result = GetTrackingByMultiWaybillNos(ClientInfo.ClientID, WaybillNo);
+
+            GlobalVar.GV.CreateShippingAPIRequest(ClientInfo, EnumList.APIRequestType.Trace_Shipment_By_RefNo, string.Join(",", WaybillNo), 11);
+            return Result;
+        }
+
         [WebMethod(Description = "You can use this function to create a new waybill in the system.")]
         public Result CreateWaybillAlt(ManifestShipmentDetailsAlt _ManifestShipmentDetailsAlt)
         {
@@ -6157,13 +7059,22 @@ where InvoiceNo = '" + WaybillNo + "';";
                     ConsigneePassportNo = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.ConsigneePassportNo,
                     ConsigneePassportExp = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.ConsigneePassportExp,
                     ConsigneeNationality = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.ConsigneeNationality,
+                    ConsigneeBirthDate = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.ConsigneeBirthDate,
+                    ConsigneeNationalIdExpiry = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.ConsigneeNationalIdExpiry,
                     District = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.District,
                     Email = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.Email,
                     Fax = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.Fax,
                     Mobile = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.Mobile,
                     PhoneNumber = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.PhoneNumber,
                     NationalAddress = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.NationalAddress,
-                    Near = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.Near
+                    Near = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.ProvinceName + "|"
+                        + _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.CityName + "|"
+                        + _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.Near,
+                    ParcelLockerMachineID = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.ParcelLockerMachineID,
+                    What3Words = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.What3Words,
+                    SPLOfficeID = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.SPLOfficeID,
+                    consignee_serial = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.consignee_serial,
+                    BuildingNo = _ManifestShipmentDetailsAlt.ConsigneeInfoAlt.BuildingNo
                 },
                 BillingType = _ManifestShipmentDetailsAlt.BillingType,
                 RefNo = _ManifestShipmentDetailsAlt.RefNo,
@@ -6191,7 +7102,9 @@ where InvoiceNo = '" + WaybillNo + "';";
                 PromisedDeliveryDateFrom = _ManifestShipmentDetailsAlt.PromisedDeliveryDateFrom,
                 PromisedDeliveryDateTo = _ManifestShipmentDetailsAlt.PromisedDeliveryDateTo,
                 Reference1 = _ManifestShipmentDetailsAlt.Reference1,
-                Reference2 = _ManifestShipmentDetailsAlt.Reference2
+                Reference2 = _ManifestShipmentDetailsAlt.Reference2,
+                Incoterm = _ManifestShipmentDetailsAlt.Incoterm,
+                IncotermsPlaceAndNotes = _ManifestShipmentDetailsAlt.IncotermsPlaceAndNotes
             };
 
             try
@@ -6256,7 +7169,8 @@ where InvoiceNo = '" + WaybillNo + "';";
                     Mobile = _AsrManifestShipmentDetailsAlt.ConsigneeInfoAlt.Mobile,
                     PhoneNumber = _AsrManifestShipmentDetailsAlt.ConsigneeInfoAlt.PhoneNumber,
                     NationalAddress = _AsrManifestShipmentDetailsAlt.ConsigneeInfoAlt.NationalAddress,
-                    Near = _AsrManifestShipmentDetailsAlt.ConsigneeInfoAlt.Near
+                    Near = _AsrManifestShipmentDetailsAlt.ConsigneeInfoAlt.ProvinceName + "|"
+                        + _AsrManifestShipmentDetailsAlt.ConsigneeInfoAlt.CityName + "|"+ _AsrManifestShipmentDetailsAlt.ConsigneeInfoAlt.Near
                 },
                 BillingType = _AsrManifestShipmentDetailsAlt.BillingType,
                 RefNo = _AsrManifestShipmentDetailsAlt.RefNo,
@@ -6383,7 +7297,7 @@ where InvoiceNo = '" + WaybillNo + "';";
                     string list1 = System.Configuration.ConfigurationManager.AppSettings["FirstCryAcc"].ToString();
                     List<int> FirstCryAcc = list1.Split(',').Select(Int32.Parse).ToList();
 
-                    if (FirstCryAcc.Contains(_clientInfo.ClientID) || _clientInfo.ClientID == 9020077)
+                    if (FirstCryAcc.Contains(_clientInfo.ClientID))
                     {
                         Result.IsCanceled = true;
                         Result.Message = WaybillNo.ToString() + " canceled successfully.";
@@ -6486,7 +7400,20 @@ where InvoiceNo = '" + WaybillNo + "';";
 
 
                 dcMaster.CancelWaybills.InsertOnSubmit(CanceledWaybill);
-                dcMaster.SubmitChanges();
+
+                bool needRetryAddCancelledWaybill = true;
+            RetryAddCancelledWaybill:
+                try
+                {
+                    dcMaster.SubmitChanges();
+                }
+                catch (Exception ex)
+                {
+                    if (needRetryAddCancelledWaybill)
+                        goto RetryAddCancelledWaybill;
+                    needRetryAddCancelledWaybill = false;
+                    throw ex;
+                }
 
                 Result.IsCanceled = true;
                 Result.Message = WaybillNo.ToString() + " canceled successfully.";
@@ -6495,6 +7422,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             catch (Exception e)
             {
                 LogException(e);
+                Result.Message = "Please resend the request.";
             }
 
 
@@ -6554,6 +7482,7 @@ where InvoiceNo = '" + WaybillNo + "';";
         [WebMethod(Description = "You can update reweight data using this function.")]
         public Result UpdateReweight(ClientInformation ClientInfo, int WaybillNo, double Length = 1, double Width = 1, double Height = 1, double Weight = 0)
         {
+            AddAPIError(ClientInfo.ClientID, "ReWt");
 
             WritetoXMLUpdateWaybill(
                 new UpdateReweightRequest() { ClientInfo = ClientInfo, WaybillNo = WaybillNo, Length = Length, Width = Width, Height = Height, Weight = Weight },
@@ -6595,7 +7524,12 @@ where InvoiceNo = '" + WaybillNo + "';";
                 return result;
             }
 
-            var tempPickWaybill = dc.Waybills.Where(c => c.ClientID == tempOrigWaybill.ClientID && c.WayBillNo == WaybillNo && !c.IsCancelled).FirstOrDefault();
+            if (IsPickupExist(WaybillNo, ClientInfo.ClientID) || dc.Waybills.Where(x => x.ClientID == ClientInfo.ClientID && x.WayBillNo == WaybillNo && !x.IsCancelled).Any())
+            {
+                result.HasError = true;
+                result.Message = $"This Waybill {WaybillNo} alrady picked up by Naqel ";
+                return result;
+            }
 
             // Get VolumeDivisor
             string con = ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
@@ -6614,62 +7548,25 @@ where InvoiceNo = '" + WaybillNo + "';";
 
             int vd = vdList[0];
 
-            // If tempPickWaybill is null, update tempOrigWaybill
-            if (tempPickWaybill == null)
+            tempOrigWaybill.Length = Length;
+            tempOrigWaybill.Width = Width;
+            tempOrigWaybill.Height = Height;
+            tempOrigWaybill.VolumeWeight = Math.Round((Length * Width * Height) / vd, 2);
+            tempOrigWaybill.Weight = Weight;
+
+            try { dc.SubmitChanges(); }
+            catch (Exception e)
             {
-                tempOrigWaybill.Length = Length;
-                tempOrigWaybill.Width = Width;
-                tempOrigWaybill.Height = Height;
-                tempOrigWaybill.VolumeWeight = Math.Round((Length * Width * Height) / vd, 2);
-                tempOrigWaybill.Weight = Weight;
-
-                try { dc.SubmitChanges(); }
-                catch (Exception e)
-                {
-                    LogException(e);
-                    result.HasError = true;
-                    result.Message = "Error during update reweight data.";
-                    GlobalVar.GV.AddErrorMessage(e, ClientInfo);
-                    return result;
-                }
-
-                result.HasError = false;
-                result.Message = "Reweight data updated successfully.";
-                return result;
-            }
-
-            // If LHW & Weight same and not invoice and not delivered, then update tempPickWaybill
-            // Else cannot update
-            if (tempOrigWaybill.Length == tempPickWaybill.Length && tempOrigWaybill.Width == tempPickWaybill.Width
-                && tempOrigWaybill.Height == tempPickWaybill.Height && tempOrigWaybill.Weight == tempPickWaybill.Weight
-                && !tempPickWaybill.IsDelivered && !tempPickWaybill.Invoiced)
-            {
-                tempPickWaybill.Length = Length;
-                tempPickWaybill.Width = Width;
-                tempPickWaybill.Height = Height;
-                tempPickWaybill.VolumeWeight = Math.Round((Length * Width * Height) / vd, 2);
-                tempPickWaybill.Weight = Weight;
-
-                try { dc.SubmitChanges(); }
-                catch (Exception e)
-                {
-                    LogException(e);
-                    result.HasError = true;
-                    result.Message = "Error during update reweight data.";
-                    GlobalVar.GV.AddErrorMessage(e, ClientInfo);
-                    return result;
-                }
-
-                result.HasError = false;
-                result.Message = "Reweight data updated successfully.";
-                return result;
-            }
-            else
-            {
+                LogException(e);
                 result.HasError = true;
-                result.Message = "You cannot reweight this waybill for now, please contact Naqel team for further help.";
+                result.Message = "Error during update reweight data.";
+                GlobalVar.GV.AddErrorMessage(e, ClientInfo);
                 return result;
             }
+
+            result.HasError = false;
+            result.Message = "Reweight data updated successfully.";
+            return result;
         }
 
         [WebMethod(Description = "You can use this function to get multiple waybill sticker file as Byte[]")]
@@ -7592,7 +8489,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             DeliveryRequestResult result = new DeliveryRequestResult() { HasError = true, WaybillNo = WaybillNo, DeliveryRequestID = 0 };
 
             // Daisy EmployID: 18494
-            int EmID = 18494;
+            int EmID = -1; // 18494;
             #region Data validation
             if (ClientInfo.CheckClientInfo(ClientInfo, false).HasError)
             {
@@ -7837,7 +8734,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             #endregion
 
             // Daisy EmployID: 18494
-            int EmID = 18494;
+            int EmID = -1; // 18494;
             string conStr = ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
             using (SqlConnection con = new SqlConnection(conStr))
             {
@@ -7984,7 +8881,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             #endregion
 
             //Daisy EmployID: 18494
-            int EmID = 18494;
+            int EmID = -1; // 18494;
             var instance = wbs.FirstOrDefault();
             using (SqlConnection conn = new SqlConnection(con))
             {
@@ -8158,7 +9055,7 @@ where InvoiceNo = '" + WaybillNo + "';";
             }
 
             // Daisy EmployID: 18494
-            int EmID = 18494;
+            int EmID = -1; // 18494;
             string sql = @"Insert into Complaint 
                     (Date, ProductTypeID, StatusID, ComplaintSeverityID, ComplaintSourceID, RegisteredBy, ComplaintStatusID, ComplaintRefTypeID, 
                     ComplaintDetails, ComplaintTypeID, ComplaintSubTypeID, RefNo, WaybillNo, StationID, ClientID, AssignedTo, ComplaintPhoneNo)
@@ -8296,7 +9193,8 @@ where InvoiceNo = '" + WaybillNo + "';";
                 using (var db = new SqlConnection(con))
                 {
                     string _sql = @"SELECT ParcelLockerID, 
-                        ParcelLockerName, ParcelLockerAddress, Location, CityName, CityCode, Country,
+                        ParcelLockerName, ParcelLockerNameAr, ParcelLockerAddress, Street,ShortAddress,zipcode,buildingnumber, 
+                        Location, CityName, CityNameAr, CityCode,RegionName, Country,
                         Longitude, Latitude, 
                         ISNULL(MonOpeningHour, '') AS MonOpeningHour,
                         ISNULL(MonClosingHour, '') AS MonClosingHour,
@@ -8307,7 +9205,7 @@ where InvoiceNo = '" + WaybillNo + "';";
                         ISNULL(ThurOpeningHour, '') AS ThurOpeningHour,
                         ISNULL(ThurClosingHour, '') AS ThurClosingHour,
                         ISNULL(FriOpeningHour, '') AS FriOpeningHour,
-                        ISNULL(FridayClosingHour, '') AS FriClosingHour,
+                        ISNULL(FriClosingHour, '') AS FriClosingHour,
                         ISNULL(SatOpeningHour, '') AS SatOpeningHour,
                         ISNULL(SatClosingHour, '') AS SatClosingHour,
                         ISNULL(SunOpeningHour, '') AS SunOpeningHour,
@@ -8323,14 +9221,21 @@ where InvoiceNo = '" + WaybillNo + "';";
                         var parcelInfo = new ParcelInfo
                         {
                             ParcelLockerID = item.ParcelLockerID,
-                            ParcelLockerName = item.ParcelLockerName,
-                            ParcelLockerAddress = item.ParcelLockerAddress,
-                            Location = item.Location,
+                            ParcelLockerName = item.ParcelLockerName ?? "",
+                            ParcelLockerNameAr = item.ParcelLockerNameAr ?? "",
+                            ParcelLockerAddress = item.ParcelLockerAddress ?? "",
+                            Street = item.Street ?? "",
+                            Location = item.Location ?? "",
                             Longitude = item.Longitude,
                             Latitude = item.Latitude,
-                            CityCode = item.CityCode,
-                            CityName = item.CityName,
-                            Country = item.Country,
+                            CityCode = item.CityCode ?? "",
+                            CityName = item.CityName ?? "",
+                            CityNameAr = item.CityNameAr ?? "",
+                            RegionName = item.RegionName ?? "",
+                            ShortAddress = item.ShortAddress ?? "",
+                            Buildingnumber = item.buildingnumber ?? "",
+                            ZIPcode = item.zipcode ?? "",
+                            Country = item.Country ?? "",
                             MonOpeningHour = item.MonOpeningHour,
                             MonClosingHour = item.MonClosingHour,
                             TuesOpeningHour = item.TuesOpeningHour,
@@ -8366,6 +9271,8 @@ where InvoiceNo = '" + WaybillNo + "';";
         [WebMethod(Description = "Bullet Delivery")]
         public BulletDeliveryResult BulletDLV(BulletDlv_Req_Details _ManifestShipmentDetailsBD)
         {
+            AddAPIError(_ManifestShipmentDetailsBD.ClientInfo.ClientID, "BulletDLV");
+
             BulletDeliveryResult Result = new BulletDeliveryResult();
 
             #region Validation
@@ -8695,9 +9602,7 @@ where InvoiceNo = '" + WaybillNo + "';";
 
             // DocumentDataDataContext dc = new DocumentDataDataContext(GlobalVar.GV.GetInfoTrackConnection());
 
-
-
-            result = CheckClientLoadType(_ManifestShipmentDetailsBD.ClientInfo.ClientID, _ManifestShipmentDetailsBD.LoadTypeID);
+            CheckClientLoadType(_ManifestShipmentDetailsBD.ClientInfo.ClientID, _ManifestShipmentDetailsBD.LoadTypeID, ref result);
             if (result.HasError)
             {
                 result.HasError = true;
@@ -8789,8 +9694,12 @@ where InvoiceNo = '" + WaybillNo + "';";
             NewWaybill.PromisedDeliveryDateFrom = null;
             NewWaybill.PromisedDeliveryDateTo = null;
 
-            if (GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetailsBD.ConsigneeInfo.CityCode).HasValue)
-                NewWaybill.ODADestinationID = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetailsBD.ConsigneeInfo.CityCode).Value;
+            //if (GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetailsBD.ConsigneeInfo.CityCode).HasValue)
+            //    NewWaybill.ODADestinationID = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetailsBD.ConsigneeInfo.CityCode).Value;
+            var odaDestinationId = GlobalVar.GV.GetODAStationByCityandCountryCode(_ManifestShipmentDetailsBD.ConsigneeInfo.CityCode);
+
+            if (odaDestinationId.HasValue)
+                NewWaybill.ODADestinationID = odaDestinationId.Value;
 
             if (NewWaybill.ODADestinationID == 1237 && NewWaybill.ServiceTypeID == 4 && (NewWaybill.DestinationCityCode == "26"))//
             {
@@ -8966,8 +9875,9 @@ where InvoiceNo = '" + WaybillNo + "';";
                 //WritetoXML(_ManifestShipmentDetailsBD, _ManifestShipmentDetailsBD.ClientInfo, _ManifestShipmentDetailsBD.RefNo, EnumList.MethodType.CreateWaybill, result);
                 result.HasError = true;
                 result.Message = "an error happen when saving the waybill details code : 120";
+                e.Source = _ManifestShipmentDetailsBD.RefNo + e.Source;
                 GlobalVar.GV.AddErrorMessage(e, _ManifestShipmentDetailsBD.ClientInfo);
-                GlobalVar.GV.AddErrorMessage1(dc.Connection.ConnectionString, _ManifestShipmentDetailsBD.ClientInfo);
+                // GlobalVar.GV.AddErrorMessage1(dc.Connection.ConnectionString, _ManifestShipmentDetailsBD.ClientInfo);
             }
 
 
@@ -9224,6 +10134,12 @@ where InvoiceNo = '" + WaybillNo + "';";
 
 
         #region SchedulWaybill API Done By Sara Almalki
+        [WebMethod(Description = " ")]
+        public ScheduleWaybillResult ScheduleWaybill(ScheduleWaybill ScheduleWaybillRequest)
+        {
+            return SchedulWaybill(ScheduleWaybillRequest);
+        }
+
         [WebMethod(Description = " ")]
         public ScheduleWaybillResult SchedulWaybill(ScheduleWaybill ScheduleWaybillRequest)
         {
@@ -9595,23 +10511,47 @@ where InvoiceNo = '" + WaybillNo + "';";
                     viwSploffice instance = listOffices[i];
                     OfficeInfo newoffice = new OfficeInfo();
                     newoffice.OfficeCode = instance.OfficeCode;
-                    newoffice.Name = instance.Name;
-                    newoffice.FName = instance.FName;
-                    newoffice.CityName = instance.CityName;
-                    newoffice.RegionName = instance.RegionName;
-                    newoffice.Lat = instance.Lat;
-                    newoffice.Long = instance.Long;
-
+                    newoffice.Name = instance.Name ?? "";
+                    newoffice.FName = instance.FName ?? "";
+                    newoffice.CityName = instance.CityName ?? "";
+                    newoffice.RegionName = instance.RegionName ?? "";
+                    newoffice.Lat = instance.Lat ?? "";
+                    newoffice.Long = instance.Long ?? "";
 
                     //DateTime StartWorkingHour = r.Add(instance.StartWorkingHour);
                     //newoffice.StartWorkingHour = Convert.ToDateTime(instance.StartWorkingHour);
-                    newoffice.StartWorkingHour = instance.StartWorkingHour.HasValue ? instance.StartWorkingHour.Value.ToString(@"hh\:mm\:ss") : null;
-                    newoffice.EndWorkingHour = instance.EndWorkingHour.HasValue ? instance.EndWorkingHour.Value.ToString(@"hh\:mm\:ss") : null;
-                    newoffice.SaturdayStartWorkingHour = instance.SaturdayStartWorkingHour.HasValue ? instance.SaturdayStartWorkingHour.Value.ToString(@"hh\:mm\:ss") : null;
-                    newoffice.SaturdayEndtWorkingHour = instance.SaturdayEndtWorkingHour.HasValue ? instance.SaturdayEndtWorkingHour.Value.ToString(@"hh\:mm\:ss") : null;
+                    //newoffice.StartWorkingHour = instance.StartWorkingHour.HasValue ? instance.StartWorkingHour.Value.ToString(@"hh\:mm\:ss") : null;
+                    //newoffice.EndWorkingHour = instance.EndWorkingHour.HasValue ? instance.EndWorkingHour.Value.ToString(@"hh\:mm\:ss") : null;
+                    //newoffice.SaturdayStartWorkingHour = instance.SaturdayStartWorkingHour.HasValue ? instance.SaturdayStartWorkingHour.Value.ToString(@"hh\:mm\:ss") : null;
+                    //newoffice.SaturdayEndtWorkingHour = instance.SaturdayEndtWorkingHour.HasValue ? instance.SaturdayEndtWorkingHour.Value.ToString(@"hh\:mm\:ss") : null;
 
+                    newoffice.CityCode = instance.CityCode ?? "";
+                    newoffice.CityNameAr = instance.CityNameAr ?? "";
+                    newoffice.Country = instance.Country ?? "";
+                    newoffice.ZipCode = instance.ZipCode ?? "";
+                    newoffice.District = instance.District ?? "";
+                    newoffice.DistrictAr = instance.ArDistrict ?? "";
 
-                    newoffice.CityCode = instance.CityCode;
+                    newoffice.Street = instance.Street ?? "";
+                    newoffice.StreetAr = instance.ArStreet ?? "";
+
+                    newoffice.BuildingNumber = instance.BuildingNumber ?? "";
+                    newoffice.AdditionalNumber = instance.AdditionalNumber ?? "";
+
+                    newoffice.MonOpeningHour = instance.MonOpeningHour ?? "";
+                    newoffice.MonClosingHour = instance.MonClosingHour ?? "";
+                    newoffice.TuesOpeningHour = instance.TuesOpeningHour ?? "";
+                    newoffice.TuesClosingHour = instance.TuesClosingHour ?? "";
+                    newoffice.WedOpeningHour = instance.WedOpeningHour ?? "";
+                    newoffice.WedClosingHour = instance.WedClosingHour ?? "";
+                    newoffice.ThurOpeningHour = instance.ThurOpeningHour ?? "";
+                    newoffice.ThurClosingHour = instance.ThurClosingHour ?? "";
+                    newoffice.FriOpeningHour = instance.FriOpeningHour ?? "";
+                    newoffice.FriClosingHour = instance.FriClosingHour ?? "";
+                    newoffice.SatOpeningHour = instance.SatOpeningHour ?? "";
+                    newoffice.SatClosingHour = instance.SatClosingHour ?? "";
+                    newoffice.SunOpeningHour = instance.SunOpeningHour ?? "";
+                    newoffice.SunClosingHour = instance.SunClosingHour ?? "";
 
                     result.Add(newoffice);
                 }
@@ -9627,7 +10567,493 @@ where InvoiceNo = '" + WaybillNo + "';";
 
 
 
+        //for Gnteq x Fedex Integrationn project only :
+        // allow to update billtype and CODcharge 
+        [WebMethod(Description = "Update the COD chareges for FedEx")]
 
+        public ReceivableResult UpdateCharges(ReceivableList receivable)
+        {
+            ReceivableResult result = new ReceivableResult();
+            if (receivable.Receivables.Count > 200)
+            // Check if the request list exceeds 200 items
+            {
+                result.HasError = true;
+                result.Message = "The request list cannot contain more than 200 items.";
+                return result;
+            }
+
+            // Initialize a list to hold valid receivables
+            List<Receivable> validReceivables = new List<Receivable>();
+
+            //save request log
+            // save in log table ( new )
+            //set max object validation 
+            // update the correct request a
+
+            string _fexdexAcc = System.Configuration.ConfigurationManager.AppSettings["FedexAccount"].ToString();
+            List<int> _fexdexAcclist = _fexdexAcc.Split(',').Select(Int32.Parse).ToList();
+
+            // only allowed for Fedex
+            if (!_fexdexAcclist.Contains(receivable.ClientInfo.ClientID))
+            {
+                result.HasError = true;
+                result.Message = "You are not allowed to UpdateCharges";
+                return result;
+            }
+
+            if (string.IsNullOrWhiteSpace(receivable.ClientInfo.ClientID.ToString()) || string.IsNullOrWhiteSpace(receivable.ClientInfo.Password))
+            {
+                result.HasError = true;
+                result.Message = "Please pass valid value in ClientID/Password";
+                return result;
+            }
+
+            // Credential Validation
+            ClientInformation ClientInfo = new ClientInformation(receivable.ClientInfo.ClientID, receivable.ClientInfo.Password);
+            ClientInfo.Version = receivable.ClientInfo.Version;
+            if (ClientInfo.CheckClientInfo(ClientInfo, false).HasError)
+            {
+                result.HasError = true;
+                result.Message = "Invalid Credential";
+                return result;
+            }
+
+            // Iterate through each receivable item
+            foreach (var receivableItem in receivable.Receivables)
+            {
+                WritetoXMLUpdateWaybill(receivable, receivable.ClientInfo, receivableItem.Mtn, EnumList.MethodType.UpdateCODCharge);
+                string refno = receivableItem.Mtn; // Assume Mtn is Refno
+
+                // Skip the check for RodAmount, if needed you can uncomment the validation here
+
+                // Check if Refno exists in CustomerWayBills
+                bool refnoExists = GlobalVar.GV.IsFedexRefNoExist(refno);
+
+                // If Refno exists, add the receivable item to validReceivables list
+                if (refnoExists)
+                {
+                    if (!GlobalVar.GV.CheckUpdateChargeAvailable(refno, receivableItem.RodAmount))
+                        validReceivables.Add(receivableItem);
+                    else
+                        result.AlreadyUpdatedMTN.Add(refno);
+                }
+                else
+                {
+
+                    // If Refno does not exist, add it to the result.Mtn list for feedback
+                    result.InvalidMtn.Add(refno);
+                }
+            }
+            bool isMtnUpdated = false;
+            // If there are valid receivables, update charges
+            if (validReceivables.Any())
+            {
+                // Create a new ReceivableList with only the valid items
+                ReceivableList validReceivableList = new ReceivableList
+                {
+                    ClientInfo = receivable.ClientInfo,
+                    Receivables = validReceivables
+                };
+
+                // Call UpdatechargeByAWB with only valid receivables
+                isMtnUpdated = GlobalVar.GV.UpdatechargeByAWB(validReceivableList);
+
+            }
+
+            // If there were no valid receivables, set the message and return
+            if (!validReceivables.Any() || !isMtnUpdated)
+            {
+                result.HasError = true;
+                result.Message = "No valid reference numbers found.";
+            }
+            else if (isMtnUpdated && result.InvalidMtn.Count == 0 && result.AlreadyUpdatedMTN.Count == 0)
+            {
+                result.HasError = false;
+                result.Message = "All MTN Updated Successfully";
+            }
+            else if ((result.InvalidMtn.Count > 0 || result.AlreadyUpdatedMTN.Count > 0) && validReceivables.Any() && isMtnUpdated)
+            {
+                result.HasError = true;
+                result.Message = "MTN Updated Successfully except MTNs under Invalid MTN list or Already Updated MTN List.";
+            }
+
+
+            return result;
+        }
+
+        public bool UpdateCustomerBarCode(ManifestShipmentDetails msd)
+        {
+            bool hasError = true;
+
+
+            // Fetch customer waybill ID based on the dispatch number
+            int customerWaybillID = GlobalVar.GV.GetCustomerWaybillIDByDispatchNumber(msd.WaybillNo);
+            if (customerWaybillID == 0)
+            {
+                return hasError;
+            }
+
+            // Fetch barcode records for the customer waybill ID
+            List<string> customerBarcodes = GlobalVar.GV.GetCustomerBarcodesByWaybillID(customerWaybillID);
+            string con = System.Configuration.ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+
+            using (SqlConnection connection = new SqlConnection(con))
+            {
+                connection.Open();
+                SqlTransaction transaction = connection.BeginTransaction();
+
+                try
+                {
+                    for (int i = 0; i < msd.Itempieceslist.Count; i++)
+                    {
+                        string updateQuery = @"
+                    UPDATE CustomerBarCode
+                    SET CustomerPieceBarCode = @receivableItemID
+                    WHERE barcode = @barcode";
+
+                        SqlCommand cmd = new SqlCommand(updateQuery, connection, transaction);
+
+                        cmd.Parameters.AddWithValue("@barcode", customerBarcodes[i]);
+                        cmd.Parameters.AddWithValue("@receivableItemID", msd.Itempieceslist[i].PieceBarcode);
+
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    hasError = false;
+                    transaction.Commit();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    transaction.Rollback();
+
+                }
+            }
+
+            return hasError;
+
+        }
+
+        public int AddAPIError(int ClientID, string FunctionName, string Message = "")
+        {
+            string con = ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+
+            // Daisy EmployID: 18494
+            string sql = @"Insert into APIError 
+                    (ClientID, Date, Message, Source, StackTrace)
+                    values (@ClientID, GETDATE(), @Message, 'API9.0', @FunctionName)";
+
+            var db = new SqlConnection(con);
+            try
+            {
+                var affectedRows = db.Execute(sql,
+                  new
+                  {
+                      ClientID,
+                      FunctionName,
+                      Message
+                  });
+
+                return affectedRows;
+            }
+            catch (Exception ex)
+            {
+                LogException(ex);
+                return 0;
+            }
+        }
+
+        [WebMethod(Description = "You can use this function to get SPL oficcess")]
+        public ChargedWeightResult GetChargedWeight(ClientInformation ClientInfo, List<int> WaybillNumbers)
+        {
+            List<ChargedWeightInfo> result = new List<ChargedWeightInfo>();
+            ChargedWeightResult r = new ChargedWeightResult();
+
+            #region Data validation
+            if (WaybillNumbers.Count > 100)
+            {
+                r.HasError = true;
+                r.Message = "You can track maximum 100 WayBill in a call.";
+                return r;
+            }
+
+            foreach (var wb in WaybillNumbers.Distinct())
+            {
+                if (!IsValidWBFormat(wb.ToString()))
+                {
+                    r.HasError = true;
+                    r.Message = "Invalid WaybillNo format in the list.";
+                    return r;
+                }
+            }
+
+            var tempResult = ClientInfo.CheckClientInfo(ClientInfo, false);
+            if (tempResult.HasError)
+            {
+                r.HasError = true;
+                r.Message = tempResult.Message;
+                return r;
+            }
+
+            if (!IsWBBelongsToClientGeneral(ClientInfo.ClientID, WaybillNumbers))
+            {
+                r.HasError = true;
+                r.Message = "Invalid WaybillNo under current credential.";
+                return r;
+            }
+            #endregion
+
+            var wbs = string.Join(",", WaybillNumbers);
+
+            // Fetch data from the database
+            string con = ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+            using (var db = new SqlConnection(con))
+            {
+                string _sql = @"select
+                    WaybillNo,
+                    case when Weight > VolumeWeight then Weight else VolumeWeight end ChargedWeight,
+                    Invoiced
+                    from Waybill
+                    where IsCancelled = 0
+                    and WayBillNo in (
+                    {0}
+                    )";
+
+                result = db.Query<ChargedWeightInfo>(string.Format(_sql, wbs)).ToList();
+            }
+
+            r.ChargedWeightList = result;
+            r.Message = "success";
+            r.HasError = false;
+            return r;
+        }
+        [WebMethod(Description = "You can use this function to get ROD Status")]
+        public RODInfoResult GetRODStatus(ClientInformation ClientInfo, List<string> ReferenceNumbers)
+        {
+            var rodStatus = new RODInfoResult();
+
+            if (ReferenceNumbers == null || ReferenceNumbers.Count == 0)
+            {
+                rodStatus.HasError = true;
+                rodStatus.Message = "Reference numbers list cannot be null or empty.";
+                return rodStatus;
+            }
+
+            if (ReferenceNumbers.Count > 100)
+            {
+                rodStatus.HasError = true;
+                rodStatus.Message = "You can track a maximum of 100 waybills per call.";
+                return rodStatus;
+            }
+
+            var validationResult = ClientInfo.CheckClientInfo(ClientInfo, false);
+            if (validationResult.HasError)
+            {
+                rodStatus.HasError = true;
+                rodStatus.Message = validationResult.Message;
+                return rodStatus;
+            }
+
+            try
+            {
+                string fedexAccounts = ConfigurationManager.AppSettings["FedexAccount"];
+                if (string.IsNullOrWhiteSpace(fedexAccounts))
+                {
+                    rodStatus.HasError = true;
+                    rodStatus.Message = "FedexAccount configuration is missing or empty.";
+                    return rodStatus;
+                }
+
+                // Parse account list safely
+                var clientIds = fedexAccounts
+                    .Split(',')
+                    .Select(s =>
+                    {
+                        if (int.TryParse(s.Trim(), out int id))
+                            return id;
+                        return -1;
+                    })
+                    .Where(id => id != -1)
+                    .ToList();
+
+                if (!clientIds.Any())
+                {
+                    rodStatus.HasError = true;
+                    rodStatus.Message = "FedexAccount configuration is not valid.";
+                    return rodStatus;
+                }
+
+                string connectionString = ConfigurationManager.ConnectionStrings["DefaultsConnectionString"]?.ConnectionString;
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    rodStatus.HasError = true;
+                    rodStatus.Message = "Database connection string is missing.";
+                    return rodStatus;
+                }
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    string query = @"
+                        SELECT
+                            cw.waybillno,
+                            cw.refno,
+                            cw.clientid AS Client,
+                            CASE 
+                                WHEN cl.id IS NOT NULL THEN CAST(1 AS BIT)
+                                ELSE CAST(0 AS BIT)
+                            END AS RODRecieved,
+                            ISNULL(CAST(cl.CODCharge AS VARCHAR), 'NA') AS RODAmount
+                        FROM customerwaybills cw
+                        LEFT OUTER JOIN codupdatelogs cl ON cl.waybillno = cw.waybillno
+                        WHERE cw.clientid IN @ClientIds
+                          AND cw.refno IN @RefNumbers;";
+
+                    var parameters = new
+                    {
+                        ClientIds = clientIds,
+                        RefNumbers = ReferenceNumbers
+                    };
+
+                    var rodInfoList = SqlMapper.Query<RODinfo>(connection, query, parameters).ToList();
+
+                    rodStatus.RODInfoList = rodInfoList;
+                    rodStatus.HasError = false;
+                    rodStatus.Message = "Success";
+                }
+            }
+            catch (SqlException ex)
+            {
+                rodStatus.HasError = true;
+                rodStatus.Message = "Database error: " + ex.Message;
+            }
+            catch (ConfigurationErrorsException ex)
+            {
+                rodStatus.HasError = true;
+                rodStatus.Message = "Configuration error: " + ex.Message;
+            }
+            catch (Exception ex)
+            {
+                rodStatus.HasError = true;
+                rodStatus.Message = "Unexpected error: " + ex.Message;
+            }
+
+            return rodStatus;
+        }
+
+        [WebMethod(Description = "You can use this function to get Dispatch manifest Status")]
+        public DispatchInfoResult GetDispatchInfo(DispatchRequest DispatchRequest)
+        {
+            var dispatchInfo = new DispatchInfoResult();
+            var dispatchInfoListList = new List<DispatchInfoList>();
+
+            try
+            {
+                if (DispatchRequest.DispatchRequests.Count > 100)
+                {
+                    dispatchInfo.HasError = true;
+                    dispatchInfo.Message = "You can track a maximum of 100 WayBill numbers per call.";
+                    return dispatchInfo;
+                }
+
+                Result result = DispatchRequest.ClientInfo.CheckClientInfo(DispatchRequest.ClientInfo, false);
+                if (result.HasError)
+                {
+                    dispatchInfo.HasError = true;
+                    dispatchInfo.Message = result.Message;
+                    return dispatchInfo;
+                }
+
+                List<int> clientIds = (ConfigurationManager.AppSettings["FedexAccount"] ?? "")
+                    .Split(',')
+                    .Select(s => int.Parse(s))
+                    .ToList();
+
+                List<int> loadTypes = (ConfigurationManager.AppSettings["FedexOutboundLoadType"] ?? "")
+                    .Split(',')
+                    .Select(s => int.Parse(s))
+                    .ToList();
+
+                string connectionString = ConfigurationManager.ConnectionStrings["DefaultsConnectionString"].ConnectionString;
+                var valuesBuilder = new StringBuilder();
+
+                foreach (var req in DispatchRequest.DispatchRequests)
+                {
+                    string reference = req.Refernce.Replace("'", "''");
+                    string loc = req.Loc.Replace("'", "''");
+                    string manifestDate = req.manifestdate.ToString("yyyy-MM-dd");
+
+                    valuesBuilder.AppendFormat("('{0}', '{1}', '{2}'),", reference, loc, manifestDate);
+                }
+
+                if (valuesBuilder.Length == 0)
+                {
+                    dispatchInfo.HasError = true;
+                    dispatchInfo.Message = "No input provided.";
+                    return dispatchInfo;
+                }
+
+                valuesBuilder.Length--; // remove trailing comma
+
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    string query = $@"
+                        WITH InputData (reference1, loc, manifestdate) AS (
+                            SELECT * FROM (VALUES {valuesBuilder}) AS v(reference1, loc, manifestdate)
+                        )
+                        SELECT
+                            cw.waybillno,
+                            cw.bookingrefno,
+                            cw.clientid,
+                            ca.AddressAR AS Loc,
+                            CAST(cw.ManifestedTime AS DATE) AS ManifestedTime,
+                            cw.clientid AS client,
+                            cw.reference1 AS DispatchNumber
+                        FROM CustomerWayBills cw WITH (NOLOCK)
+                        JOIN ClientAddress ca WITH (NOLOCK) ON cw.ClientAddressID = ca.ID
+                        JOIN InputData i ON cw.reference1 = i.reference1
+                                        AND ca.AddressAR = i.loc
+                                        AND CAST(cw.ManifestedTime AS DATE) = CAST(i.manifestdate AS DATE)
+                        WHERE cw.clientid IN @ClientIds
+                          AND cw.loadtypeid IN @LoadTypes;";
+
+                    dispatchInfoListList = SqlMapper.Query<DispatchInfoList>(
+                        connection,
+                        query,
+                        new { ClientIds = clientIds, LoadTypes = loadTypes }
+                    ).ToList();
+                }
+
+                if (dispatchInfoListList.Any())
+                {
+                    dispatchInfo.DispatchInfoList = dispatchInfoListList;
+                    dispatchInfo.Message = "Success";
+                    dispatchInfo.HasError = false;
+                }
+                else
+                {
+                    dispatchInfo.Message = "No Result found. Please check the data provided";
+                    dispatchInfo.HasError = false;
+                }
+            }
+            catch (SqlException ex)
+            {
+                dispatchInfo.HasError = true;
+                dispatchInfo.Message = "Database error occurred: " + ex.Message;
+            }
+            catch (FormatException ex)
+            {
+                dispatchInfo.HasError = true;
+                dispatchInfo.Message = "Configuration error: " + ex.Message;
+            }
+            catch (Exception ex)
+            {
+                dispatchInfo.HasError = true;
+                dispatchInfo.Message = "An unexpected error occurred: " + ex.Message;
+            }
+
+            return dispatchInfo;
+        }
 
     }
+
 }

@@ -31,7 +31,6 @@ namespace InfoTrack.NaqelAPI.Report
             DevExpress.XtraPrinting.BarCode.Code128Generator code128Generator1 = new DevExpress.XtraPrinting.BarCode.Code128Generator();
             DevExpress.XtraPrinting.BarCode.Code128Generator code128Generator2 = new DevExpress.XtraPrinting.BarCode.Code128Generator();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Asr_rpCustomerLabel4x6));
-            DevExpress.XtraPrinting.BarCode.QRCodeGenerator qrCodeGenerator1 = new DevExpress.XtraPrinting.BarCode.QRCodeGenerator();
             this.Detail = new DevExpress.XtraReports.UI.DetailBand();
             this.xrLabel10 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel9 = new DevExpress.XtraReports.UI.XRLabel();
@@ -39,6 +38,7 @@ namespace InfoTrack.NaqelAPI.Report
             this.xrLabel7 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel5 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel4 = new DevExpress.XtraReports.UI.XRLabel();
+            this.imgCustomSymbol = new DevExpress.XtraReports.UI.XRShape();
             this.xrLabel3 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel2 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrTable11 = new DevExpress.XtraReports.UI.XRTable();
@@ -104,7 +104,6 @@ namespace InfoTrack.NaqelAPI.Report
             this.xrLabel33 = new DevExpress.XtraReports.UI.XRLabel();
             this.TopMargin = new DevExpress.XtraReports.UI.TopMarginBand();
             this.BottomMargin = new DevExpress.XtraReports.UI.BottomMarginBand();
-            this.xrBarCode2 = new DevExpress.XtraReports.UI.XRBarCode();
             ((System.ComponentModel.ISupportInitialize)(this.xrTable11)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.xrTable10)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.xrTable9)).BeginInit();
@@ -120,13 +119,13 @@ namespace InfoTrack.NaqelAPI.Report
             // Detail
             // 
             this.Detail.Controls.AddRange(new DevExpress.XtraReports.UI.XRControl[] {
-            this.xrBarCode2,
             this.xrLabel10,
             this.xrLabel9,
             this.xrLabel8,
             this.xrLabel7,
             this.xrLabel5,
             this.xrLabel4,
+            this.imgCustomSymbol,
             this.xrLabel3,
             this.xrLabel2,
             this.xrTable11,
@@ -242,6 +241,13 @@ namespace InfoTrack.NaqelAPI.Report
             this.xrLabel4.StylePriority.UseFont = false;
             this.xrLabel4.StylePriority.UseTextAlignment = false;
             this.xrLabel4.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleRight;
+            // 
+            // imgCustomSymbol
+            // 
+            this.imgCustomSymbol.LocationFloat = new DevExpress.Utils.PointFloat(9.999998F, 46.84582F);
+            this.imgCustomSymbol.Name = "imgCustomSymbol";
+            this.imgCustomSymbol.SizeF = new System.Drawing.SizeF(70F, 68F);
+            this.imgCustomSymbol.BeforePrint += new System.Drawing.Printing.PrintEventHandler(this.imgCustomSymbol_BeforePrint);
             // 
             // xrLabel3
             // 
@@ -877,24 +883,6 @@ namespace InfoTrack.NaqelAPI.Report
             this.BottomMargin.Padding = new DevExpress.XtraPrinting.PaddingInfo(0, 0, 0, 0, 100F);
             this.BottomMargin.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopLeft;
             // 
-            // xrBarCode2
-            // 
-            this.xrBarCode2.AutoModule = true;
-            this.xrBarCode2.Borders = DevExpress.XtraPrinting.BorderSide.None;
-            this.xrBarCode2.ExpressionBindings.AddRange(new DevExpress.XtraReports.UI.ExpressionBinding[] {
-            new DevExpress.XtraReports.UI.ExpressionBinding("BeforePrint", "Text", "[RefNo]")});
-            this.xrBarCode2.LocationFloat = new DevExpress.Utils.PointFloat(9.999998F, 46.84582F);
-            this.xrBarCode2.Module = 1F;
-            this.xrBarCode2.Name = "xrBarCode2";
-            this.xrBarCode2.Padding = new DevExpress.XtraPrinting.PaddingInfo(0, 0, 0, 0, 100F);
-            this.xrBarCode2.ShowText = false;
-            this.xrBarCode2.SizeF = new System.Drawing.SizeF(70F, 70F);
-            this.xrBarCode2.StylePriority.UseBorders = false;
-            this.xrBarCode2.StylePriority.UsePadding = false;
-            this.xrBarCode2.StylePriority.UseTextAlignment = false;
-            this.xrBarCode2.Symbology = qrCodeGenerator1;
-            this.xrBarCode2.TextAlignment = DevExpress.XtraPrinting.TextAlignment.BottomCenter;
-            // 
             // Asr_rpCustomerLabel4x6
             // 
             this.Bands.AddRange(new DevExpress.XtraReports.UI.Band[] {
@@ -994,6 +982,6 @@ namespace InfoTrack.NaqelAPI.Report
         private DevExpress.XtraReports.UI.XRLabel xrLabel9;
         private DevExpress.XtraReports.UI.XRLabel xrLabel8;
         private DevExpress.XtraReports.UI.XRLabel xrLabel7;
-        private DevExpress.XtraReports.UI.XRBarCode xrBarCode2;
+        private DevExpress.XtraReports.UI.XRShape imgCustomSymbol;
     }
 }
