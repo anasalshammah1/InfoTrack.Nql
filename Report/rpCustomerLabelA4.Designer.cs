@@ -116,7 +116,7 @@
             this.xrLabel48 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel13 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel18 = new DevExpress.XtraReports.UI.XRLabel();
-            this.xrLabel17 = new DevExpress.XtraReports.UI.XRLabel();
+            this.lb_totalValue = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel11 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel4 = new DevExpress.XtraReports.UI.XRLabel();
             this.xrLabel12 = new DevExpress.XtraReports.UI.XRLabel();
@@ -327,7 +327,7 @@
             this.xrLabel48,
             this.xrLabel13,
             this.xrLabel18,
-            this.xrLabel17,
+            this.lb_totalValue,
             this.xrLabel11,
             this.xrLabel4,
             this.xrLabel12,
@@ -548,10 +548,10 @@
             this.xrLabel72.Borders = ((DevExpress.XtraPrinting.BorderSide)(((DevExpress.XtraPrinting.BorderSide.Top | DevExpress.XtraPrinting.BorderSide.Right) 
             | DevExpress.XtraPrinting.BorderSide.Bottom)));
             this.xrLabel72.Font = new System.Drawing.Font("Times New Roman", 7F);
-            this.xrLabel72.LocationFloat = new DevExpress.Utils.PointFloat(283.4406F, 461.6873F);
+            this.xrLabel72.LocationFloat = new DevExpress.Utils.PointFloat(298.4406F, 461.6873F);
             this.xrLabel72.Name = "xrLabel72";
             this.xrLabel72.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel72.SizeF = new System.Drawing.SizeF(83.93433F, 15.99988F);
+            this.xrLabel72.SizeF = new System.Drawing.SizeF(68.93433F, 15.99991F);
             this.xrLabel72.StylePriority.UseBorders = false;
             this.xrLabel72.StylePriority.UseFont = false;
             this.xrLabel72.StylePriority.UseTextAlignment = false;
@@ -1639,18 +1639,18 @@
             this.xrLabel18.StylePriority.UseTextAlignment = false;
             this.xrLabel18.TextAlignment = DevExpress.XtraPrinting.TextAlignment.MiddleCenter;
             // 
-            // xrLabel17
+            // lb_totalValue
             // 
-            this.xrLabel17.Borders = ((DevExpress.XtraPrinting.BorderSide)(((DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Top) 
+            this.lb_totalValue.Borders = ((DevExpress.XtraPrinting.BorderSide)(((DevExpress.XtraPrinting.BorderSide.Left | DevExpress.XtraPrinting.BorderSide.Top) 
             | DevExpress.XtraPrinting.BorderSide.Bottom)));
-            this.xrLabel17.Font = new System.Drawing.Font("Verdana", 7F);
-            this.xrLabel17.LocationFloat = new DevExpress.Utils.PointFloat(102.3029F, 461.6873F);
-            this.xrLabel17.Name = "xrLabel17";
-            this.xrLabel17.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
-            this.xrLabel17.SizeF = new System.Drawing.SizeF(181.1376F, 15.99988F);
-            this.xrLabel17.StylePriority.UseBorders = false;
-            this.xrLabel17.StylePriority.UseFont = false;
-            this.xrLabel17.Text = "Total Value :";
+            this.lb_totalValue.Font = new System.Drawing.Font("Verdana", 7F);
+            this.lb_totalValue.LocationFloat = new DevExpress.Utils.PointFloat(102.3029F, 461.6873F);
+            this.lb_totalValue.Name = "lb_totalValue";
+            this.lb_totalValue.Padding = new DevExpress.XtraPrinting.PaddingInfo(2, 2, 0, 0, 100F);
+            this.lb_totalValue.SizeF = new System.Drawing.SizeF(196.1377F, 15.99991F);
+            this.lb_totalValue.StylePriority.UseBorders = false;
+            this.lb_totalValue.StylePriority.UseFont = false;
+            this.lb_totalValue.Text = "Total Value :";
             // 
             // xrLabel11
             // 
@@ -3180,7 +3180,7 @@
         private DevExpress.XtraReports.UI.XRLabel xrLabel48;
         private DevExpress.XtraReports.UI.XRLabel xrLabel13;
         private DevExpress.XtraReports.UI.XRLabel xrLabel18;
-        private DevExpress.XtraReports.UI.XRLabel xrLabel17;
+        private DevExpress.XtraReports.UI.XRLabel lb_totalValue;
         private DevExpress.XtraReports.UI.XRLabel xrLabel11;
         private DevExpress.XtraReports.UI.XRLabel xrLabel4;
         private DevExpress.XtraReports.UI.XRLabel xrLabel12;

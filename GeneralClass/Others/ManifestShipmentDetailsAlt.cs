@@ -54,6 +54,8 @@ namespace InfoTrack.NaqelAPI.GeneralClass.Others
         public double DeclareValue = 0;
 
         public string GoodDesc = "";
+        public string Incoterm = "";
+        public string IncotermsPlaceAndNotes = "";
         public string Latitude = "";
         public string Longitude = "";
         public string RefNo = "";

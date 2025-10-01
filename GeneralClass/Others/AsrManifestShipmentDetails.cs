@@ -148,7 +148,7 @@ namespace InfoTrack.NaqelAPI.GeneralClass.Others
             #endregion
 
             #region Check load type
-           // int[] acceptLoadTypeArray = { 66, 136, 204 ,206 , 284 }; // Domestic ASR, International ASR, Drop Off- ASR
+            // int[] acceptLoadTypeArray = { 66, 136, 204 ,206 , 284 }; // Domestic ASR, International ASR, Drop Off- ASR
             string acceptLoadTypeArray = System.Configuration.ConfigurationManager.AppSettings["ASRLoadTypes"].ToString();
 
             if (!acceptLoadTypeArray.Contains(_AsrManifestShipmentDetails.LoadTypeID.ToString()))
@@ -230,7 +230,7 @@ namespace InfoTrack.NaqelAPI.GeneralClass.Others
                     return result;
                 }
 
-                if ( !IntacceptLoadTypeArray.Contains(_AsrManifestShipmentDetails.LoadTypeID.ToString()))
+                if (!IntacceptLoadTypeArray.Contains(_AsrManifestShipmentDetails.LoadTypeID.ToString()))
                 {
                     result.HasError = true;
                     result.Message = "Please check LoadTypeID!";
@@ -238,8 +238,8 @@ namespace InfoTrack.NaqelAPI.GeneralClass.Others
                 }
             }
 
-                string list1 = System.Configuration.ConfigurationManager.AppSettings["ClientIDWithDomAsrDV"].ToString();
-                List<int> ClientValidation = list1.Split(',').Select(Int32.Parse).ToList();
+            string list1 = System.Configuration.ConfigurationManager.AppSettings["ClientIDWithDomAsrDV"].ToString();
+            List<int> ClientValidation = list1.Split(',').Select(Int32.Parse).ToList();
             bool IsAllowDomAsrDV = ClientValidation.Contains(_AsrManifestShipmentDetails.ClientInfo.ClientID);
 
 
@@ -268,6 +268,16 @@ namespace InfoTrack.NaqelAPI.GeneralClass.Others
                 //    return result;
                 //}
             }
+
+            // Drop off ASR delivery only for KSA
+            string DropOffASRLoadTypeArray = System.Configuration.ConfigurationManager.AppSettings["DropOffASRLoadTypes"].ToString();
+            if (DropOffASRLoadTypeArray.Contains(_AsrManifestShipmentDetails.LoadTypeID.ToString()) && OriginCountryCode != "KSA")
+            {
+                result.HasError = true;
+                result.Message = "DropOff Not Supported!";
+                return result;
+            }
+
             #endregion
 
             #region Check Surcharge

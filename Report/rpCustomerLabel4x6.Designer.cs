@@ -261,6 +261,7 @@
             this.xrTableCell33.StylePriority.UseTextAlignment = false;
             this.xrTableCell33.TextAlignment = DevExpress.XtraPrinting.TextAlignment.TopLeft;
             this.xrTableCell33.Weight = 2.691854066228947D;
+            this.xrTableCell33.WordWrap = false;
             // 
             // xrTableCell34
             // 
@@ -523,6 +524,7 @@
             // 
             // xrTableCell12
             // 
+            this.xrTableCell12.CanGrow = false;
             this.xrTableCell12.ExpressionBindings.AddRange(new DevExpress.XtraReports.UI.ExpressionBinding[] {
             new DevExpress.XtraReports.UI.ExpressionBinding("BeforePrint", "Text", "[DeclaredValue]")});
             this.xrTableCell12.Name = "xrTableCell12";

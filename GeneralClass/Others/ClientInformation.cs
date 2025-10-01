@@ -240,7 +240,12 @@ namespace InfoTrack.NaqelAPI
                     }
                 }
             }
-            catch (Exception e) { GlobalVar.GV.AddErrorMessage(e, this); }
+            catch (Exception e) {
+                result.HasError = true;
+                result.Message = "an error happen when saving the client details code : 120";
+                GlobalVar.GV.AddErrorMessage(e, this); 
+            
+            }
 
             return result;
         }
@@ -253,12 +258,12 @@ namespace InfoTrack.NaqelAPI
                                            P.StatusID != 3 &&
                                            P.PhoneNumber.ToLower() == _clientInformation.ClientAddress.PhoneNumber.ToLower() && P.POBox == _clientInformation.ClientAddress.POBox &&
                                            // P.PhoneNumber.ToLower() == _clientInformation.ClientAddress.PhoneNumber.ToLower() &&
-                                           P.FirstAddress.ToLower() == _clientInformation.ClientAddress.FirstAddress.ToLower() &&
+                                           P.FirstAddress.ToLower() == _clientInformation.ClientAddress.FirstAddress.ToLower() &&P.AddressAR.ToLower() == _clientInformation .ClientAddress.ShipperName &&
                                            P.CityID == GlobalVar.GV.GetCityIDByCityCode(_clientInformation.ClientAddress.CityCode, _clientInformation.ClientAddress.CountryCode, IsCourierLoadType)).Count() > 0)
                 _clientInformation.ClientAddressID = dcMaster.ClientAddresses.First(P => P.ClientID == _clientInformation.ClientID &&
                                            P.StatusID != 3 &&
                                            P.PhoneNumber.ToLower() == _clientInformation.ClientAddress.PhoneNumber.ToLower() && P.POBox == _clientInformation.ClientAddress.POBox &&
-                                           P.FirstAddress.ToLower() == _clientInformation.ClientAddress.FirstAddress.ToLower() &&
+                                           P.FirstAddress.ToLower() == _clientInformation.ClientAddress.FirstAddress.ToLower() &&  P.AddressAR.ToLower() == _clientInformation.ClientAddress.ShipperName &&
                                            P.CityID == GlobalVar.GV.GetCityIDByCityCode(_clientInformation.ClientAddress.CityCode, _clientInformation.ClientAddress.CountryCode, IsCourierLoadType)).ID;
             else
             {
@@ -287,7 +292,7 @@ namespace InfoTrack.NaqelAPI
                 instance.StatusID = 1;
                 instance.IsNotificaton = false;
                 instance.NationalAddress = _clientInformation.ClientAddress.NationalAddress;//***
-
+                instance.AddressAR = _clientInformation.ClientAddress.ShipperName;
                 dcMaster.ClientAddresses.InsertOnSubmit(instance);
                 dcMaster.SubmitChanges();
                 _clientInformation.ClientAddressID = instance.ID;
@@ -403,6 +408,8 @@ namespace InfoTrack.NaqelAPI
         public string Fax = "0";
         public string Latitude = "";
         public string Longitude = "";
+        public string ShipperName = "";
+
     }
 
 
